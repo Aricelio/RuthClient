@@ -1,3 +1,5 @@
+using RuthClient.Presentation.Forms.PanelForm;
+
 namespace RuthClient
 {
     internal static class Program
@@ -6,7 +8,7 @@ namespace RuthClient
         private static void Main()
         {
             ApplicationConfiguration.Initialize();
-            Application.Run(new Main());
+            Application.Run(new PanelForm());
         }
     }
 }
