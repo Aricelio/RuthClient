@@ -8,24 +8,19 @@
     "net8.0-windows7.0": []
   },
   "packageFolders": {
-    "C:\\Users\\a.de.souza.fernandes\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\jhody.mike.da.silva\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\a.de.souza.fernandes\\Documents\\Projects\\RuthClient\\source\\RuthClient\\RuthClient.csproj",
+      "projectUniqueName": "C:\\Users\\jhody.mike.da.silva\\Desktop\\meus programas\\client http V1.7\\source\\RuthClient\\RuthClient.csproj",
       "projectName": "RuthClient",
-      "projectPath": "C:\\Users\\a.de.souza.fernandes\\Documents\\Projects\\RuthClient\\source\\RuthClient\\RuthClient.csproj",
-      "packagesPath": "C:\\Users\\a.de.souza.fernandes\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\a.de.souza.fernandes\\Documents\\Projects\\RuthClient\\source\\RuthClient\\obj\\",
+      "projectPath": "C:\\Users\\jhody.mike.da.silva\\Desktop\\meus programas\\client http V1.7\\source\\RuthClient\\RuthClient.csproj",
+      "packagesPath": "C:\\Users\\jhody.mike.da.silva\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\jhody.mike.da.silva\\Desktop\\meus programas\\client http V1.7\\source\\RuthClient\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\a.de.souza.fernandes\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Users\\jhody.mike.da.silva\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -50,8 +45,7 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      },
-      "SdkAnalysisLevel": "9.0.300"
+      }
     },
     "frameworks": {
       "net8.0-windows7.0": {
@@ -75,7 +69,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.204/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
