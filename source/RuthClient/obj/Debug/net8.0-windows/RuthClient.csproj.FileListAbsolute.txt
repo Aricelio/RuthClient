@@ -1,0 +1,16 @@
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.Main.resources
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.csproj.GenerateResource.cache
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.AssemblyInfoInputs.cache
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.AssemblyInfo.cs
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.csproj.CoreCompileInputs.cache
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\bin\Debug\net8.0-windows\RuthClient.exe
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\bin\Debug\net8.0-windows\RuthClient.deps.json
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\bin\Debug\net8.0-windows\RuthClient.runtimeconfig.json
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\bin\Debug\net8.0-windows\RuthClient.dll
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\bin\Debug\net8.0-windows\RuthClient.pdb
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.dll
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\refint\RuthClient.dll
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.pdb
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\RuthClient.genruntimeconfig.cache
+C:\Users\a.de.souza.fernandes\Documents\Projects\RuthClient\source\RuthClient\obj\Debug\net8.0-windows\ref\RuthClient.dll
