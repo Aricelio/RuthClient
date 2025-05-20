@@ -73,16 +73,17 @@ class MainWindow(QMainWindow):
 
         # Menu Arquivo
         file_menu = menu_bar.addMenu('Arquivo')
-        file_menu = self.menuBar().addMenu('Arquivo')
         file_menu.addAction(self.generate_pdf_action)
-        file_menu.addAction(self.new_collection_action)
-        file_menu.addAction(self.import_collection_action)
-        file_menu.addSeparator()
-        file_menu.addAction(self.import_curl_action)
-        file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
 
-        file_menu.addAction(self.exit_action)
+# menu coleção
+        file_menu = menu_bar.addMenu('Coleção')
+        file_menu.addAction(self.new_collection_action)
+        file_menu.addAction(self.import_collection_action)
+
+# Menu requisição
+        file_menu = menu_bar.addMenu('Requisição')
+        file_menu.addAction(self.import_curl_action)
 
         # Menu Variáveis
         variables_menu = menu_bar.addMenu('Variáveis')
@@ -1061,122 +1062,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, 'Erro', f'Falha ao criar a pasta:\n{e}')
 
-    def _move_request(self, request_item):
-        data = request_item.data(0, Qt.UserRole)
-        collection = data['collection']
-        current_path = data['path']
-
-        # 1. Reunir todas as pastas (caminho + nome)
-        folder_entries = []
-        def gather_folders(node, path):
-            if isinstance(node, dict) and 'item' in node:
-                name = node.get('name', 'Pasta sem nome')
-                folder_entries.append((path.copy(), name))
-                for idx, child in enumerate(node['item']):
-                    gather_folders(child, path + ['item', idx])
-
-        gather_folders(collection, [])
-
-        # 2. Excluir a pasta atual (pai da requisição) das opções
-        parent_path = current_path[:-2]
-        valid_entries = [
-            (path, name)
-            for path, name in folder_entries
-            if path != parent_path
-        ]
-        if not valid_entries:
-            QMessageBox.warning(self, "Atenção", "Nenhuma pasta disponível para mover.")
-            return
-
-        folder_names = [name for _, name in valid_entries]
-        selected_name, ok = QInputDialog.getItem(
-            self, "Mover para Pasta", "Selecione a pasta:",
-            folder_names, 0, False
-        )
-        if not ok:
-            return
-
-        # 3. Encontrar o path correspondente ao nome selecionado
-        try:
-            sel_idx = folder_names.index(selected_name)
-            target_path = valid_entries[sel_idx][0]
-        except ValueError:
-            QMessageBox.critical(self, "Erro", "Pasta selecionada inválida.")
-            return
-
-        # Helper robusto para navegar na árvore de coleção
-        def navigate_to_node(root, path_steps):
-            node = root
-            for step in path_steps:
-                if isinstance(node, dict):
-                    # se for string, tenta chave direta
-                    if isinstance(step, str):
-                        node = node.get(step)
-                    # se for índice, assume lista em 'item'
-                    elif isinstance(step, int):
-                        node = node.get('item', [])[step] if 'item' in node else None
-                elif isinstance(node, list):
-                    # índice em lista
-                    if isinstance(step, int) and 0 <= step < len(node):
-                        node = node[step]
-                    else:
-                        node = None
-                else:
-                    node = None
-
-                if node is None:
-                    return None
-
-            return node
-
-        # 4. Remover a requisição do local original
-        try:
-            parent_node = navigate_to_node(collection, parent_path)
-            if parent_node is None:
-                raise KeyError(f"Nó-pai não encontrado: {parent_path}")
-
-            # extrai lista de itens
-            if isinstance(parent_node, dict):
-                parent_list = parent_node.get('item', [])
-            else:  # deve ser lista
-                parent_list = parent_node
-
-            last_index = current_path[-1]
-            if 0 <= last_index < len(parent_list):
-                request_data = parent_list.pop(last_index)
-            else:
-                raise IndexError(f"Índice inválido: {last_index}")
-        except Exception as e:
-            QMessageBox.critical(
-                self, "Erro", f"Falha ao mover requisição (remover):\n{e}"
-            )
-            return
-
-        # 5. Acrescentar a requisição na pasta de destino
-        try:
-            target_node = navigate_to_node(collection, target_path)
-            if target_node is None:
-                raise KeyError(f"Nó-destino não encontrado: {target_path}")
-
-            if isinstance(target_node, dict):
-                children = target_node.setdefault('item', [])
-            else:  # lista
-                children = target_node
-
-            children.append(request_data)
-        except Exception as e:
-            QMessageBox.critical(
-                self, "Erro", f"Falha ao mover requisição (adicionar):\n{e}"
-            )
-            return
-
-        # 6. Persistir e atualizar UI
-        self.save_collections()
-        self.update_collections_view()
-        QMessageBox.information(
-            self, "Sucesso",
-            f"Requisição movida para “{selected_name}”."
-        )
 
     def _gerar_curl(self, method, url, headers, body):
         curl = f"curl -X {method.upper()} '{url}'"
@@ -1267,6 +1152,174 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Falha ao gerar evidência:\n{e}")
+
+    def _navigate_to_node(self, root_container, path_list):
+        """
+        Navega através de uma estrutura aninhada de dicionários e listas.
+
+        Args:
+            root_container: O dicionário ou lista raiz para iniciar a navegação
+                          (pode ser self.collections ou um item específico da coleção).
+            path_list: Uma lista de chaves de dicionário (str) e/ou índices de lista (int)
+                       representando o caminho para o nó desejado.
+
+        Returns:
+            O nó de destino se encontrado, caso contrário None.
+        """
+        current_level = root_container
+        if not path_list: # Se o caminho é vazio, retorna o próprio container raiz
+            return root_container
+
+        for key_or_index in path_list:
+            if current_level is None:
+                return None  # Não pode navegar mais se o nível atual é None
+
+            if isinstance(key_or_index, str):  # Acessar chave de dicionário
+                if isinstance(current_level, dict) and key_or_index in current_level:
+                    current_level = current_level[key_or_index]
+                else:
+                    # Chave não encontrada ou o nível atual não é um dicionário como esperado
+                    return None
+            elif isinstance(key_or_index, int):  # Acessar índice de lista
+                if isinstance(current_level, list) and 0 <= key_or_index < len(current_level):
+                    current_level = current_level[key_or_index]
+                else:
+                    # Índice inválido, ou o nível atual não é uma lista como esperado, ou índice fora dos limites
+                    return None
+            else:
+                # Tipo de passo no caminho é inválido (não é string nem inteiro)
+                return None
+        return current_level
+
+    def _move_request(self, request_item_widget): # Renomeado para clareza (o argumento é o QTreeWidget)
+        data = request_item_widget.data(0, Qt.UserRole)
+        if not data or data.get('type') != 'request': # Segurança adicional
+            QMessageBox.warning(self, "Atenção", "Item selecionado não é uma requisição válida.")
+            return
+
+        current_path_absolute = data['path']  # Path absoluto: [coll_idx, 'item', ..., req_idx]
+        
+        if not current_path_absolute or not isinstance(current_path_absolute, list) or len(current_path_absolute) < 3:
+             QMessageBox.critical(self, "Erro Interno", "Path da requisição inválido.")
+             return
+
+        collection_idx = current_path_absolute[0]
+        
+        try:
+            # Garante que collection_idx é um índice válido para self.collections
+            if not (isinstance(collection_idx, int) and 0 <= collection_idx < len(self.collections)):
+                raise IndexError("Índice da coleção inválido no path da requisição.")
+            collection_dict = self.collections[collection_idx] # Acessando o dicionário da coleção corretamente
+        except IndexError as e:
+            QMessageBox.critical(self, "Erro Interno", f"Não foi possível acessar a coleção: {e}")
+            return
+
+
+        # 1. Reunir todas as pastas e a raiz da coleção como possíveis destinos
+        possible_destinations = []  # Lista de tuplas: (path_relativo_a_colecao, nome_exibicao_destino)
+
+        collection_name_info = collection_dict.get('info', {}).get('name', f'Coleção ID {collection_idx}')
+        possible_destinations.append(([], f"Raiz da Coleção: {collection_name_info}"))
+
+        def find_folder_destinations_recursive(current_parent_dict, path_to_current_parent_in_collection):
+            if 'item' in current_parent_dict and isinstance(current_parent_dict['item'], list):
+                for index, child_item in enumerate(current_parent_dict['item']):
+                    if isinstance(child_item, dict) and 'name' in child_item and 'item' in child_item:
+                        path_to_child_folder_in_collection = path_to_current_parent_in_collection + ['item', index]
+                        possible_destinations.append((path_to_child_folder_in_collection, f"Pasta: {child_item['name']}"))
+                        find_folder_destinations_recursive(child_item, path_to_child_folder_in_collection)
+
+        find_folder_destinations_recursive(collection_dict, [])
+
+        # 2. Excluir o contêiner (pasta/raiz) atual da requisição das opções de destino
+        path_of_request_parent_dict_in_collection = current_path_absolute[1:-2]
+
+        valid_destinations = [
+            (path, name)
+            for path, name in possible_destinations
+            if path != path_of_request_parent_dict_in_collection
+        ]
+
+        if not valid_destinations:
+            QMessageBox.warning(self, "Sem Destinos", "Nenhum outro local disponível para mover esta requisição.")
+            return
+
+        destination_display_names = [name for _, name in valid_destinations]
+        selected_display_name, ok = QInputDialog.getItem(
+            self, "Mover Requisição Para...", "Selecione o novo local:",
+            destination_display_names, 0, False
+        )
+        if not ok or not selected_display_name:
+            return
+
+        # 3. Encontrar o path relativo ao destino selecionado
+        try:
+            selected_destination_index = destination_display_names.index(selected_display_name)
+            target_parent_dict_path_in_collection = valid_destinations[selected_destination_index][0]
+        except ValueError:
+            QMessageBox.critical(self, "Erro Interno", "Local de destino selecionado inválido.")
+            return
+
+        # 4. Remover a requisição do local original
+        request_data_to_move = None
+        try:
+            source_parent_list_path_absolute = current_path_absolute[:-1]
+            source_request_index = current_path_absolute[-1]
+
+            parent_list_obj = self._navigate_to_node(self.collections, source_parent_list_path_absolute)
+
+            if parent_list_obj is None or not isinstance(parent_list_obj, list):
+                raise ValueError(f"Falha: contêiner de origem não é uma lista válida (path: {source_parent_list_path_absolute}).")
+
+            if 0 <= source_request_index < len(parent_list_obj):
+                request_data_to_move = parent_list_obj.pop(source_request_index)
+            else:
+                raise IndexError(f"Índice da requisição ({source_request_index}) inválido para a lista de origem.")
+            
+            if request_data_to_move is None:
+                raise ValueError("Dados da requisição não puderam ser obtidos para movimentação.")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erro na Remoção", f"Falha ao remover requisição do local original:\n{e}")
+            return
+
+        # 5. Adicionar a requisição no dicionário/lista de destino
+        try:
+            target_parent_obj = self._navigate_to_node(collection_dict, target_parent_dict_path_in_collection)
+
+            if target_parent_obj is None or not isinstance(target_parent_obj, dict):
+                raise ValueError(f"Destino não é um dicionário válido (path relativo: {target_parent_dict_path_in_collection}).")
+
+            target_item_list = target_parent_obj.setdefault('item', [])
+            if not isinstance(target_item_list, list):
+                 target_parent_obj['item'] = []
+                 target_item_list = target_parent_obj['item']
+
+            target_item_list.append(request_data_to_move)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erro na Adição", f"Falha ao adicionar requisição ao novo local:\n{e}\nTentando reverter remoção.")
+            try:
+                parent_list_obj_for_revert = self._navigate_to_node(self.collections, source_parent_list_path_absolute)
+                if parent_list_obj_for_revert is not None and isinstance(parent_list_obj_for_revert, list):
+                    parent_list_obj_for_revert.insert(source_request_index, request_data_to_move)
+                    QMessageBox.information(self, "Reversão", "A remoção da requisição foi revertida.")
+                else:
+                    QMessageBox.warning(self, "Falha na Reversão", "Não foi possível reverter a remoção automaticamente.")
+            except Exception as revert_e:
+                 QMessageBox.warning(self, "Falha na Reversão", f"Erro ao tentar reverter: {revert_e}")
+            
+            self.update_collections_view()
+            return
+
+        # 6. Persistir e atualizar UI
+        self.save_collections()
+        self.update_collections_view()
+        QMessageBox.information(
+            self, "Sucesso",
+            f"Requisição movida para “{selected_display_name}”."
+        )
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
