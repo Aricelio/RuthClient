@@ -4,6 +4,8 @@ import json
 import urllib3
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 from datetime import datetime
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QAction, QFileDialog, QMessageBox,
@@ -521,6 +523,11 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, 'Erro', f'Falha ao parsear cURL:\n{e}')
             return
 
+        if not self.collections:
+            QMessageBox.warning(self, 'Nenhuma Coleção',
+                                'Você precisa criar uma coleção primeiro para salvar a requisição importada.')
+            return
+
         # 3) Pergunta onde salvar e qual nome dar
         save_dlg = QDialog(self)
         save_dlg.setWindowTitle('Salvar requisição importada')
@@ -540,6 +547,9 @@ class MainWindow(QMainWindow):
 
         if save_dlg.exec_() == QDialog.Accepted:
             idx = combo.currentIndex()
+            if idx < 0 or idx >= len(self.collections):  # Verificação de segurança
+                QMessageBox.critical(self, 'Erro', 'Seleção de coleção inválida.')
+                return
             collection = self.collections[idx]
             collection.setdefault('item', []).append(request_item)
 
@@ -1090,6 +1100,13 @@ class MainWindow(QMainWindow):
             return
 
         try:
+            # Definições de margens e outras constantes
+            left_margin = 50
+            right_margin = 50
+            top_margin = 50
+            bottom_margin = 50
+            text_start_x = 60
+
             evid_dir = os.path.join(os.getcwd(), "evidência")
             os.makedirs(evid_dir, exist_ok=True)
 
@@ -1097,56 +1114,139 @@ class MainWindow(QMainWindow):
             file_name = f"evidencia_{now}.pdf"
             file_path = os.path.join(evid_dir, file_name)
 
-            request = self.current_request_data.get('request', {})
-            method = request.get('method', 'GET')
-            url = request.get('url', '')
-            if isinstance(url, dict):
-                url = url.get('raw', '')
+            request_data = self.current_request_data.get('request', {})
+            method = request_data.get('method', 'GET')
+            url_data = request_data.get('url', '')
+            if isinstance(url_data, dict):
+                url = url_data.get('raw', '')
+            else:
+                url = url_data
 
-            headers = request.get('header', [])
-            body = None
-            if request.get('body', {}).get('mode') == 'raw':
-                try:
-                    body = json.loads(request['body'].get('raw', ''))
-                except Exception:
-                    body = request['body'].get('raw', '')
+            headers = request_data.get('header', [])
+            body_data = request_data.get('body', {})
+            body_content = None
+            if body_data.get('mode') == 'raw':
+                body_content = body_data.get('raw', '')
+            # Adicionar outros modos de corpo se necessário para o cURL
 
-            curl_cmd = self._gerar_curl(method, url, headers, body)
+            curl_cmd = self._gerar_curl(method, url, headers, body_content)
             status_code = self.status_code_text.toPlainText().strip()
             response_body = self.response_body_text.toPlainText().strip()
 
             c = canvas.Canvas(file_path, pagesize=A4)
             width, height = A4
+            available_width = width - text_start_x - right_margin
+
+            styles = getSampleStyleSheet()
+            para_style = styles['Normal']
+            para_style.fontName = 'Helvetica'
+            para_style.fontSize = 10
+            para_style.leading = 12
+
+            current_y = height - top_margin
 
             c.setFont("Helvetica-Bold", 14)
-            c.drawString(50, height - 50, "Evidência de Requisição HTTP")
+            c.drawString(left_margin, current_y, "Evidência de Requisição HTTP")
+            current_y -= 30
 
+            # Renderização do cURL
             c.setFont("Helvetica-Bold", 12)
-            c.drawString(50, height - 80, "cURL:")
-            c.setFont("Helvetica", 10)
-            for i, line in enumerate(curl_cmd.splitlines()):
-                c.drawString(60, height - 100 - (i * 12), line)
+            if current_y - 14 < bottom_margin:
+                c.showPage()
+                current_y = height - top_margin
+            c.drawString(left_margin, current_y, "cURL:")
+            current_y -= 20
 
-            y = height - 120 - (len(curl_cmd.splitlines()) * 12)
+            curl_paragraph = Paragraph(curl_cmd, para_style)
+            p_w_curl, p_h_curl = curl_paragraph.wrapOn(c, available_width, height)
 
+            if current_y - p_h_curl < bottom_margin:
+                c.showPage()
+                current_y = height - top_margin
+                c.setFont("Helvetica-Bold", 12) # Redesenha o título se necessário
+                c.drawString(left_margin, current_y, "cURL:")
+                current_y -= 20
+            
+            curl_paragraph.drawOn(c, text_start_x, current_y - p_h_curl)
+            current_y -= (p_h_curl + 20)
+
+            # Renderização do Status Code
+            if current_y - 12 - 15 - 12 < bottom_margin: # Aproximação para título e valor
+                c.showPage()
+                current_y = height - top_margin
+            
             c.setFont("Helvetica-Bold", 12)
-            c.drawString(50, y, "Status Code:")
-            y -= 15
+            c.drawString(left_margin, current_y, "Status Code:")
+            current_y -= 15
             c.setFont("Helvetica", 10)
-            c.drawString(60, y, status_code)
+            c.drawString(text_start_x, current_y, status_code)
+            current_y -= 25
 
-            y -= 25
+            # Renderização do Body
+            if current_y - 12 < bottom_margin:
+                c.showPage()
+                current_y = height - top_margin
+            
             c.setFont("Helvetica-Bold", 12)
-            c.drawString(50, y, "Body:")
-            y -= 15
-            c.setFont("Helvetica", 10)
-            for line in response_body.splitlines():
-                if y < 50:
-                    c.showPage()
-                    y = height - 50
-                c.drawString(60, y, line)
-                y -= 12
+            c.drawString(left_margin, current_y, "Body:")
+            current_y -= 15
 
+            if response_body:
+                body_paragraph = Paragraph(response_body, para_style)
+                _, total_h_body = body_paragraph.wrapOn(c, available_width, height)
+
+                if current_y - total_h_body >= bottom_margin:
+                    body_paragraph.drawOn(c, text_start_x, current_y - total_h_body)
+                    current_y -= total_h_body
+                else:
+                    remaining_paragraph_obj = body_paragraph
+                    while remaining_paragraph_obj:
+                        space_on_page = current_y - bottom_margin
+                        if space_on_page <= para_style.leading:
+                            c.showPage()
+                            current_y = height - top_margin
+                            # Opcional: Redesenhar título "Body:" na nova página
+                            # c.setFont("Helvetica-Bold", 12)
+                            # c.drawString(left_margin, current_y, "Body:")
+                            # current_y -= 15
+                            space_on_page = current_y - bottom_margin
+                        
+                        try:
+                            parts = remaining_paragraph_obj.split(available_width, space_on_page)
+                        except Exception:
+                            parts = []
+
+                        if parts and len(parts) > 0:
+                            part_to_draw = parts[0]
+                            _, part_h = part_to_draw.wrapOn(c, available_width, space_on_page)
+                            
+                            part_to_draw.drawOn(c, text_start_x, current_y - part_h)
+                            current_y -= part_h
+
+                            if len(parts) > 1:
+                                remaining_text = "".join([p.text for p in parts[1:] if hasattr(p, 'text')])
+                                if remaining_text:
+                                    remaining_paragraph_obj = Paragraph(remaining_text, para_style)
+                                else:
+                                    remaining_paragraph_obj = None
+                                
+                                if remaining_paragraph_obj:
+                                    c.showPage()
+                                    current_y = height - top_margin
+                                    # Opcional: Redesenhar título "Body:" na nova página
+                                    # c.setFont("Helvetica-Bold", 12)
+                                    # c.drawString(left_margin, current_y, "Body:")
+                                    # current_y -= 15 
+                            else:
+                                remaining_paragraph_obj = None
+                        else:
+                            if remaining_paragraph_obj:
+                                _, h_rem = remaining_paragraph_obj.wrapOn(c, available_width, space_on_page)
+                                if h_rem <= space_on_page:
+                                    remaining_paragraph_obj.drawOn(c, text_start_x, current_y - h_rem)
+                                    current_y -= h_rem
+                            remaining_paragraph_obj = None
+            
             c.save()
             QMessageBox.information(self, "Sucesso", f"Evidência gerada em:\n{file_path}")
 
