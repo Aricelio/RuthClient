@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RuthClient")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4c2c130c96ee627352433370d006e8d67083669a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+94a54e5b61014172fa99d32624119effe3661614")]
 [assembly: System.Reflection.AssemblyProductAttribute("RuthClient")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RuthClient")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
