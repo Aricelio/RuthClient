@@ -1,4 +1,7 @@
-
 # Ignorar pastas e seus conteúdos
 data/
 evidencia/
+
+# Python cache files
+*.pyc
+__pycache__/
