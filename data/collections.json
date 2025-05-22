@@ -1,0 +1,35 @@
+[
+  {
+    "info": {
+      "name": "Checkout - Natura"
+    },
+    "item": [
+      {
+        "name": "shipping",
+        "item": [
+          {
+            "name": "delete delivery mode",
+            "request": {
+              "method": "POST",
+              "url": "http://gsp-integration-api-int.qa.naturacloud.com/globalsales/integration/v1/delivery-mode-receiver",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "x-api-key",
+                  "value": "5bd16316-df58-4121-a155-8eea6537351c"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n    \"COUNTRY_CODE\": \"AR\",\n    \"OPERATION\": \"D\",\n    \"EVENT_DATE\": \"2025-03-18T09:29:08.86\",\n    \"CODE\": \"869\"\n}"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
