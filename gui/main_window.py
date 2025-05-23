@@ -24,6 +24,8 @@ from core.environment import EnvironmentManager
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class MainWindow(QMainWindow):
+    
+    # Função principal para executar a aplicação
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Ferramenta de Requisições HTTP')
@@ -44,6 +46,7 @@ class MainWindow(QMainWindow):
         self.update_edit_environments_menu()
         self.update_collections_view()
 
+    # Função para criar os actions
     def _create_actions(self):
         self.generate_pdf_action = QAction('Gerar Evidência em PDF', self)
         self.generate_pdf_action.triggered.connect(self.generate_evidence_pdf)
@@ -70,6 +73,7 @@ class MainWindow(QMainWindow):
         self.import_environment_action.setToolTip('Importar um ambiente do Postman')
         self.import_environment_action.setStatusTip('Importar um ambiente do Postman')
 
+    # Função para criar a barra de menu
     def _create_menu_bar(self):
         menu_bar = self.menuBar()
 
@@ -78,12 +82,12 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.generate_pdf_action)
         file_menu.addAction(self.exit_action)
 
-# menu coleção
+        # Menu coleção
         file_menu = menu_bar.addMenu('Coleção')
         file_menu.addAction(self.new_collection_action)
         file_menu.addAction(self.import_collection_action)
 
-# Menu requisição
+        # Menu requisição
         file_menu = menu_bar.addMenu('Requisição')
         file_menu.addAction(self.import_curl_action)
 
@@ -98,6 +102,7 @@ class MainWindow(QMainWindow):
         self.edit_environments_menu = variables_menu.addMenu('Editar')
         self.update_edit_environments_menu()
 
+    # Função para editar as variaveis de ambiente no menu
     def update_edit_environments_menu(self):
         self.edit_environments_menu.clear()
         for env_name in self.environments.environments.keys():
@@ -1445,7 +1450,7 @@ class MainWindow(QMainWindow):
             f"Requisição movida para “{selected_display_name}”."
         )
 
-
+#Função principal para executar a aplicação
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
