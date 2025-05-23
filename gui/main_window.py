@@ -986,6 +986,11 @@ class MainWindow(QMainWindow):
             rename_act.triggered.connect(lambda _, it=item: self._rename_item(it))
             menu.addAction(rename_act)
 
+            # Adiciona a nova ação "Copiar cURL"
+            copy_curl_action = QAction('Copiar cURL', self)
+            copy_curl_action.triggered.connect(lambda _, it=item: self.copiar_curl_da_requisicao(it))
+            menu.addAction(copy_curl_action)
+
             move_act = QAction('Mover para...', self)
             move_act.triggered.connect(lambda _, it=item: self._move_request(it))
             menu.addAction(move_act)
@@ -1450,7 +1455,92 @@ class MainWindow(QMainWindow):
             f"Requisição movida para “{selected_display_name}”."
         )
 
-#Função principal para executar a aplicação
+    def copiar_curl_da_requisicao(self, tree_item):
+        try:
+            data = tree_item.data(0, Qt.UserRole)
+            if not data or data.get('type') != 'request':
+                QMessageBox.warning(self, "Erro", "Item selecionado não é uma requisição válida.")
+                return
+
+            request_id = data.get('id')
+            if not request_id:
+                QMessageBox.warning(self, "Erro", "ID da requisição não encontrado no item da árvore.")
+                return
+            
+            request_data_dict_from_mapping = self.request_mapping.get(request_id)
+
+            # Determinar a fonte correta dos dados da requisição
+            request_data_dict_to_use = None
+            is_current_request = bool(self.current_request_data and request_data_dict_from_mapping is self.current_request_data)
+
+            if is_current_request:
+                # A requisição selecionada é a que está ativa na UI.
+                # Garante que os dados da UI sejam salvos no objeto current_request_data.
+                self.update_current_request_data_from_ui() # Salva edições da UI
+                request_data_dict_to_use = self.current_request_data # Usar os dados atualizados da UI
+            else:
+                # A requisição selecionada NÃO é a que está ativa na UI.
+                # Usar os dados armazenados no request_mapping.
+                request_data_dict_to_use = request_data_dict_from_mapping
+
+            if not request_data_dict_to_use:
+                QMessageBox.warning(self, "Erro", f"Dados da requisição com ID {request_id} não encontrados.")
+                return
+
+            request_details = request_data_dict_to_use.get('request', {})
+            method = request_details.get('method', 'GET')
+            
+            url_data = request_details.get('url', {})
+            if isinstance(url_data, dict):
+                url_str = url_data.get('raw', '')
+            else:
+                url_str = str(url_data)
+
+            headers = request_details.get('header', [])
+            body_data_from_dict = request_details.get('body', {})
+            
+            corpo_preparado = ''
+            if is_current_request:
+                # Se é a requisição atual (e já foi atualizada da UI), o corpo vem do self.body_text
+                # Isso garante que o cURL reflita o que está visível e editável na aba Body
+                corpo_preparado = self.body_text.toPlainText()
+            else:
+                # Para requisições não ativas na UI, usar os dados do dicionário
+                mode = body_data_from_dict.get('mode')
+                if mode == 'raw':
+                    corpo_preparado = body_data_from_dict.get('raw', '')
+                elif body_data_from_dict:
+                    # Para outros modos como formdata, urlencoded, o _gerar_curl atual usa -d.
+                    # Uma representação ideal exigiria modificar _gerar_curl para usar -F etc.
+                    # Por ora, passamos o conteúdo 'raw' se disponível, ou uma serialização JSON/string.
+                    if 'raw' in body_data_from_dict: # Se houver um campo 'raw' mesmo em outros modos
+                        corpo_preparado = body_data_from_dict.get('raw', '')
+                    elif mode in ['formdata', 'urlencoded'] and body_data_from_dict.get(mode):
+                        # Tenta uma representação simples; idealmente _gerar_curl seria aprimorado.
+                        # Para agora, vamos tentar montar uma string simples ou JSON.
+                        # Uma string vazia ou JSON do dict podem ser mais seguros para _gerar_curl como está.
+                        try:
+                            corpo_preparado = json.dumps(body_data_from_dict.get(mode))
+                        except TypeError:
+                            corpo_preparado = str(body_data_from_dict.get(mode))
+                    else: # Se não for raw e não tiver um modo conhecido com dados
+                         corpo_preparado = '' 
+            
+            # Gerar o comando cURL
+            string_do_curl_gerada = self._gerar_curl(method, url_str, headers, corpo_preparado)
+
+            # Copiar para a área de transferência
+            clipboard = QApplication.clipboard()
+            if clipboard:
+                clipboard.setText(string_do_curl_gerada)
+                QMessageBox.information(self, "Sucesso", "Comando cURL copiado para a área de transferência!")
+            else:
+                QMessageBox.warning(self, "Erro", "Não foi possível acessar a área de transferência.")
+
+        except Exception as e:
+            QMessageBox.warning(self, "Erro", f"Erro ao gerar ou copiar cURL: {str(e)}")
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
