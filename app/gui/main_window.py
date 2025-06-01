@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Ferramenta de Requisições HTTP')
         self.setGeometry(100, 100, 1200, 800)
 
-        # Definir o ícone da janela
+        # Defini o ícone da janela
         icon_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'icons', 'ruth.ico')
         self.setWindowIcon(QIcon(icon_path))
 
@@ -61,6 +61,7 @@ class MainWindow(QMainWindow):
     def _create_actions(self):
         self.generate_pdf_action = QAction('Gerar Evidência em PDF', self)
         self.generate_pdf_action.triggered.connect(self.generate_evidence_pdf)
+        
         self.new_collection_action = QAction('Nova Coleção', self)
         self.new_collection_action.triggered.connect(self.create_collection)
         self.new_collection_action.setToolTip('Criar uma nova coleção vazia')
@@ -102,15 +103,15 @@ class MainWindow(QMainWindow):
         file_menu = menu_bar.addMenu('Requisição')
         file_menu.addAction(self.import_curl_action)
 
-        # Menu Variáveis
-        variables_menu = menu_bar.addMenu('Variáveis')
-        variables_menu.setAccessibleName('Menu Variáveis')
+        # Menu Ambientes
+        environments_menu = menu_bar.addMenu('Ambientes')
+        environments_menu.setAccessibleName('Menu Ambientes')
 
         # Import Environment Action
-        variables_menu.addAction(self.import_environment_action)
+        environments_menu.addAction(self.import_environment_action)
 
         # Edit Environments Submenu
-        self.edit_environments_menu = variables_menu.addMenu('Editar')
+        self.edit_environments_menu = environments_menu.addMenu('Editar')
         self.update_edit_environments_menu()
 
     # Função para editar as variaveis de ambiente no menu
