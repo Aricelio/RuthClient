@@ -1,6 +1,7 @@
 import requests
 import json
 
+# Executor é uma classe responsável por executar requisições HTTP
 class Executor:
 
     # Método para executar uma requisição HTTP
@@ -19,6 +20,7 @@ class Executor:
         if 'body' in request:
             body = request['body']
             mode = body.get('mode')
+            
             if mode == 'raw':
                 data = body.get('raw', '')
                 if content_type == 'application/json':

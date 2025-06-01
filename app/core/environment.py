@@ -19,6 +19,7 @@ class EnvironmentManager:
     # Aplica as variáveis de um ambiente a uma estrutura de dados de requisição.
     def apply_environment(self, request_data, environment_name):
         environment = self.get_environment(environment_name)
+        
         if not environment:
             return request_data  # Nenhum environment para aplicar
 
