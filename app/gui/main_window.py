@@ -60,8 +60,8 @@ class MainWindow(QMainWindow):
     # Função para criar os actions
     def _create_actions(self):
         self.generate_pdf_action = QAction('Gerar Evidência em PDF', self)
-        self.generate_pdf_action.triggered.connect(self.generate_evidence_pdf)
-        
+        self.generate_pdf_action.triggered.connect(self.generate_pdf_evidence)
+
         self.new_collection_action = QAction('Nova Coleção', self)
         self.new_collection_action.triggered.connect(self.create_collection)
         self.new_collection_action.setToolTip('Criar uma nova coleção vazia')
@@ -1029,7 +1029,7 @@ class MainWindow(QMainWindow):
 
             # Adiciona a nova ação "Copiar cURL"
             copy_curl_action = QAction('Copiar cURL', self)
-            copy_curl_action.triggered.connect(lambda _, it=item: self.copiar_curl_da_requisicao(it))
+            copy_curl_action.triggered.connect(lambda _, it=item: self.copy_curl_from_request(it))
             menu.addAction(copy_curl_action)
 
             move_act = QAction('Mover para...', self)
@@ -1127,7 +1127,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, 'Erro', f'Falha ao criar a pasta:\n{e}')
 
     # Função para gerar um comando cURL a partir dos dados da requisição
-    def _gerar_curl(self, method, url, headers, body):
+    def _generate_curl(self, method, url, headers, body):
         curl = f"curl -X {method.upper()} '{url}'"
 
         for h in headers:
@@ -1149,7 +1149,7 @@ class MainWindow(QMainWindow):
         return curl
 
     # Função para gerar um PDF com evidências da requisição
-    def generate_evidence_pdf(self):
+    def generate_pdf_evidence(self):
         if not self.current_request_data:
             QMessageBox.warning(self, "Aviso", "Nenhuma requisição selecionada.")
             return
@@ -1197,7 +1197,7 @@ class MainWindow(QMainWindow):
                     body_content_from_request = request['body'].get('raw', '')
 
 
-            curl_cmd = self._gerar_curl(method, url, headers, body_content_from_request) # Passa o body formatado ou raw
+            curl_cmd = self._generate_curl(method, url, headers, body_content_from_request) # Passa o body formatado ou raw
             status_code = self.status_code_text.toPlainText().strip()
             response_body = self.response_body_text.toPlainText().strip() # Este é o que será renderizado com Paragraph
 
@@ -1501,7 +1501,7 @@ class MainWindow(QMainWindow):
         )
 
     # Função para copiar o comando cURL de uma requisição para a área de transferência
-    def copiar_curl_da_requisicao(self, tree_item):
+    def copy_curl_from_request(self, tree_item):
         try:
             data = tree_item.data(0, Qt.UserRole)
             if not data or data.get('type') != 'request':
@@ -1567,7 +1567,7 @@ class MainWindow(QMainWindow):
                     # corpo_preparado = body_data_from_dict.get('raw', '')
             
             # Gerar o comando cURL
-            string_do_curl_gerada = self._gerar_curl(method, url_str, headers, corpo_preparado)
+            string_do_curl_gerada = self._generate_curl(method, url_str, headers, corpo_preparado)
 
             # Copiar para a área de transferência
             clipboard = QApplication.clipboard()
