@@ -2,6 +2,8 @@ import requests
 import json
 
 class Executor:
+
+    # Método para executar uma requisição HTTP
     def execute_request(self, request, verify_ssl=True):
         method = request.get('method', 'GET').upper()
         url = request.get('url', '')
