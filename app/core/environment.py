@@ -1,17 +1,22 @@
 class EnvironmentManager:
+    # Inicializa o gerenciador de ambientes.
     def __init__(self):
         self.environments = {}
 
+    # Adiciona um novo ambiente ou atualiza um existente.
     def add_environment(self, name, variables):
         self.environments[name] = variables
 
+    # Remove um ambiente especificado.
     def remove_environment(self, name):
         if name in self.environments:
             del self.environments[name]
 
+    # Retorna as variáveis de um ambiente especificado.
     def get_environment(self, name):
         return self.environments.get(name, {})
 
+    # Aplica as variáveis de um ambiente a uma estrutura de dados de requisição.
     def apply_environment(self, request_data, environment_name):
         environment = self.get_environment(environment_name)
         if not environment:
