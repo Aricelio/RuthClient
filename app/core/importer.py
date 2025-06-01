@@ -2,20 +2,23 @@ import json
 import shlex
 from urllib.parse import urlparse
 
+# Importer para converter arquivos JSON de coleção (Postman v2.x) e comandos cURL em itens de requisição
 class Importer:
-    def import_collection(self, file_path):
-        """
+
+    """
         Importa um arquivo JSON de coleção (Postman v2.x) e retorna o dicionário correspondente.
-        """
+    """
+    def import_collection(self, file_path):        
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
             return data
 
-    def import_curl(self, curl_cmd):
-        """
+    """
         Converte um comando cURL em um item de requisição compatível com a estrutura interna.
         Aceita comandos multilinha com '\' e quebra de linha.
-        """
+    """
+    def import_curl(self, curl_cmd):
+        
         # Limpa quebras de linha e barras de continuação
         cmd = curl_cmd.replace('\\\n', ' ').replace('\\\r\n', ' ')
         cmd = cmd.replace('\\', ' ')
