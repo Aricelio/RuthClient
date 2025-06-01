@@ -1,5 +1,11 @@
 import sys
 import os
+
+# Add the 'app' directory (parent of 'gui') to sys.path
+# to allow imports like 'from core.module import ...'
+# This ensures that modules within the 'app' directory, like 'core', can be found.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import json
 import urllib3
 from reportlab.lib.pagesizes import A4
@@ -15,7 +21,7 @@ from PyQt5.QtWidgets import (
     QMenu, QInputDialog, QDialogButtonBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtGui import QKeyEvent, QIcon
 from core.importer import Importer
 from core.executor import Executor
 from core.environment import EnvironmentManager
@@ -30,6 +36,11 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle('Ferramenta de Requisições HTTP')
         self.setGeometry(100, 100, 1200, 800)
+
+        # Definir o ícone da janela
+        icon_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'icons', 'ruth.ico')
+        self.setWindowIcon(QIcon(icon_path))
+
         self.collections = []
         self.environments = EnvironmentManager()
         self.current_request_data = None
@@ -110,6 +121,7 @@ class MainWindow(QMainWindow):
             edit_action.triggered.connect(lambda checked, name=env_name: self.edit_environment(name))
             self.edit_environments_menu.addAction(edit_action)
 
+    # Função para exibir o diálogo de edição de um ambiente específico
     def edit_environment(self, environment_name):
         # Cria uma janela de diálogo
         dialog = QDialog(self)
@@ -138,6 +150,7 @@ class MainWindow(QMainWindow):
 
         dialog.exec_()
 
+    # Função para salvar as alterações feitas em um ambiente
     def save_environment_changes(self, environment_name, variables_text, dialog):
         # Analisa as variáveis a partir do texto
         variables = {}
@@ -156,6 +169,7 @@ class MainWindow(QMainWindow):
         dialog.accept()
         QMessageBox.information(self, 'Sucesso', f'Ambiente "{environment_name}" atualizado com sucesso!')
 
+    # Função para configurar a interface gráfica principal da janela
     def _setup_ui(self):
         # Cria o widget principal e o layout
         main_widget = QWidget()
@@ -388,6 +402,7 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(main_widget)
 
+    # Função para lidar com a mudança do método HTTP selecionado
     def on_method_changed(self, button):
         selected_method = button.text()
         print(f"Método HTTP selecionado: {selected_method}")
@@ -395,6 +410,7 @@ class MainWindow(QMainWindow):
         if self.current_request_data:
             self.current_request_data['request']['method'] = selected_method
 
+    # Função para lidar com a seleção de um item na árvore de coleções/requisições
     def on_tree_item_selected(self):
         selected_items = self.tree_widget.selectedItems()
         if selected_items:
@@ -408,6 +424,7 @@ class MainWindow(QMainWindow):
         else:
             self.clear_request_details()
 
+    # Função para lidar com a ativação de um item na árvore (duplo clique ou Enter)
     def on_item_activated(self, item, column):
         item_type = item.data(0, Qt.UserRole).get('type')
         if item_type in ('collection', 'folder'):
@@ -419,6 +436,7 @@ class MainWindow(QMainWindow):
             request_id = item.data(0, Qt.UserRole).get('id')
             self.display_request_details(request_id)
 
+    # Função para limpar os detalhes da requisição exibidos na interface
     def clear_request_details(self):
         self.current_request_data = None
         self.execute_button.setEnabled(False)
@@ -440,6 +458,7 @@ class MainWindow(QMainWindow):
         self.radio_urlencoded.setChecked(False)
         self.body_type_group.setExclusive(True)
 
+    # Função para lidar com a mudança do tipo de corpo da requisição
     def on_body_type_changed(self, button):
         # Atualiza o cabeçalho Content-Type nos headers com base no RadioButton selecionado
         if button == self.radio_raw_json:
@@ -475,11 +494,13 @@ class MainWindow(QMainWindow):
         new_headers_text = '\n'.join(headers_lines)
         self.headers_text.setPlainText(new_headers_text)
 
+    # Função para lidar com a mudança do ambiente ativo
     def on_environment_changed(self, index):
         # Ação ao mudar o ambiente ativo
         selected_env = self.environment_combo.currentText()
         print(f'Ambiente ativo selecionado: {selected_env}')
 
+    # Função para importar uma coleção do Postman
     def import_collection(self):
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(
@@ -495,6 +516,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Falha ao importar a coleção:\n{e}")
 
+    # Função para importar uma requisição a partir de um comando cURL
     def import_curl(self):
         # 1) Solicita ao usuário o comando cURL
         dialog = QDialog(self)
@@ -567,16 +589,20 @@ class MainWindow(QMainWindow):
 
             QMessageBox.information(self, 'Sucesso', 'Requisição importada com sucesso!')
 
+    # Função para criar uma nova coleção vazia
     def create_collection(self):
         name, ok = QInputDialog.getText(self, 'Nova Coleção', 'Nome da nova coleção:')
+
         if not ok or not name.strip():
             return
+        
         new_coll = {'info': {'name': name.strip()}, 'item': []}
         self.collections.append(new_coll)
         self.update_collections_view()
         self.save_collections()
         QMessageBox.information(self, 'Sucesso', f'Coleção "{name}" criada.')
 
+    # Função para importar um ambiente do Postman
     def import_environment(self):
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(
@@ -595,6 +621,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Falha ao importar o ambiente:\n{e}")
 
+    # Função para atualizar o combo box de ambientes
     def update_environment_combo(self):
         current_env = self.environment_combo.currentText()
         self.environment_combo.blockSignals(True)  # Evita disparar o sinal
@@ -607,6 +634,7 @@ class MainWindow(QMainWindow):
             self.environment_combo.setCurrentIndex(index)
         self.environment_combo.blockSignals(False)
 
+    # Função para atualizar a exibição das coleções na árvore
     def update_collections_view(self):
         self.tree_widget.clear()
         self.request_mapping = {}  # Limpar o mapeamento ao atualizar a árvore
@@ -623,6 +651,7 @@ class MainWindow(QMainWindow):
             for item_idx, item in enumerate(collection.get('item', [])):
                 self._add_request_items(collection_item, item, collection, [idx, 'item', item_idx])
 
+    # Função auxiliar para adicionar itens de requisição (ou pastas) à árvore
     def _add_request_items(self, parent_item, item, collection, path):
         if 'item' in item:
             folder_name = item.get('name', 'Pasta')
@@ -650,6 +679,7 @@ class MainWindow(QMainWindow):
             self.request_mapping[request_id] = item
             parent_item.addChild(request_item)
 
+    # Função para exibir os detalhes de uma requisição selecionada
     def display_request_details(self, request_id):
         if self.current_request_data:
             self.update_current_request_data_from_ui()
@@ -739,6 +769,7 @@ class MainWindow(QMainWindow):
         else:
             self.clear_request_details()
 
+    # Função para atualizar os dados da requisição atual a partir da interface
     def update_current_request_data_from_ui(self):
         if self.current_request_data is None:
             return
@@ -815,6 +846,7 @@ class MainWindow(QMainWindow):
             # Se não houver, adicionamos o campo 'name' com um valor padrão
             self.current_request_data['name'] = 'Requisição Sem Nome'
 
+    # Função para executar a requisição HTTP
     def execute_request(self):
         if self.current_request_data:
             print("Executando a requisição...")
@@ -849,6 +881,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Erro", f"Falha ao executar a requisição:\n{e}")
                 print(f"Erro ao executar a requisição: {e}")
 
+    # Função para exibir a resposta da requisição
     def show_response(self, response):
         try:
             print("Exibindo a resposta...")
@@ -872,6 +905,7 @@ class MainWindow(QMainWindow):
             print(f"Erro ao exibir a resposta: {e}")
             QMessageBox.critical(self, "Erro", f"Falha ao exibir a resposta:\n{e}")
 
+    # Função para lidar com o evento de fechamento da janela
     def closeEvent(self, event):
         if self.current_request_data:
             self.update_current_request_data_from_ui()
@@ -880,6 +914,7 @@ class MainWindow(QMainWindow):
         self.save_environments()
         event.accept()  # Aceita o evento de fechamento
 
+    # Função para salvar as coleções em arquivo
     def save_collections(self):
         data_dir = 'data'
         os.makedirs(data_dir, exist_ok=True)
@@ -890,6 +925,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Aviso", f"Falha ao salvar as coleções:\n{e}")
 
+    # Função para carregar as coleções de arquivo
     def load_collections(self):
         data_dir = 'data'
         collections_file = os.path.join(data_dir, 'collections.json')
@@ -900,6 +936,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.warning(self, "Aviso", f"Falha ao carregar as coleções:\n{e}")
 
+    # Função para salvar os ambientes em arquivo
     def save_environments(self):
         data_dir = 'data'
         os.makedirs(data_dir, exist_ok=True)
@@ -910,6 +947,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Aviso", f"Falha ao salvar os ambientes:\n{e}")
 
+    # Função para carregar os ambientes de arquivo
     def load_environments(self):
         data_dir = 'data'
         environments_file = os.path.join(data_dir, 'environments.json')
@@ -938,6 +976,7 @@ class MainWindow(QMainWindow):
                     return True
         return super(MainWindow, self).eventFilter(source, event)
 
+    # Função para renomear um item (pasta ou requisição) na árvore
     def _rename_item(self, tree_item):
         data = tree_item.data(0, Qt.UserRole) or {}
         tipo = data.get('type')
@@ -972,6 +1011,7 @@ class MainWindow(QMainWindow):
         self.save_collections()
         QMessageBox.information(self, 'Sucesso', f'{prefix.capitalize()} renomeada para "{novo.strip()}"')
 
+    # Função para exibir o menu de contexto ao clicar com o botão direito na árvore
     def on_tree_item_context_menu(self, position):
         item = self.tree_widget.itemAt(position)
         if not item:
@@ -1019,6 +1059,7 @@ class MainWindow(QMainWindow):
 
         menu.exec_(self.tree_widget.viewport().mapToGlobal(position))
 
+    # Função para excluir um item (coleção, pasta ou requisição)
     def _delete_item(self, tree_item):
         data = tree_item.data(0, Qt.UserRole)
         tipo = data.get('type')
@@ -1058,6 +1099,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, 'Erro', f'Erro ao excluir item:\n{e}')
 
+    # Função para criar uma nova pasta (subcoleção) dentro de uma coleção
     def _new_folder(self, collection_item):
         data = collection_item.data(0, Qt.UserRole)
         path = data.get('path', [])
@@ -1083,7 +1125,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, 'Erro', f'Falha ao criar a pasta:\n{e}')
 
-
+    # Função para gerar um comando cURL a partir dos dados da requisição
     def _gerar_curl(self, method, url, headers, body):
         curl = f"curl -X {method.upper()} '{url}'"
 
@@ -1105,6 +1147,7 @@ class MainWindow(QMainWindow):
 
         return curl
 
+    # Função para gerar um PDF com evidências da requisição
     def generate_evidence_pdf(self):
         if not self.current_request_data:
             QMessageBox.warning(self, "Aviso", "Nenhuma requisição selecionada.")
@@ -1287,6 +1330,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Falha ao gerar evidência:\\n{e}")
 
+    # Função para navegar através de uma estrutura aninhada de dicionários e listas para encontrar um nó específico.
     def _navigate_to_node(self, root_container, path_list):
         """
         Navega através de uma estrutura aninhada de dicionários e listas.
@@ -1325,10 +1369,11 @@ class MainWindow(QMainWindow):
                 return None
         return current_level
 
-
+    # Função para mover uma requisição para outra pasta dentro da mesma coleção
     def _move_request(self, request_item_widget): # Renomeado para clareza (o argumento é o QTreeWidget)
         data = request_item_widget.data(0, Qt.UserRole)
-        if not data or data.get('type') != 'request': # Segurança adicional
+        
+        if not data or data.get('type') != 'request':
             QMessageBox.warning(self, "Atenção", "Item selecionado não é uma requisição válida.")
             return
 
@@ -1348,7 +1393,6 @@ class MainWindow(QMainWindow):
         except IndexError as e:
             QMessageBox.critical(self, "Erro Interno", f"Não foi possível acessar a coleção: {e}")
             return
-
 
         # 1. Reunir todas as pastas e a raiz da coleção como possíveis destinos
         possible_destinations = []  # Lista de tuplas: (path_relativo_a_colecao, nome_exibicao_destino)
@@ -1455,6 +1499,7 @@ class MainWindow(QMainWindow):
             f"Requisição movida para “{selected_display_name}”."
         )
 
+    # Função para copiar o comando cURL de uma requisição para a área de transferência
     def copiar_curl_da_requisicao(self, tree_item):
         try:
             data = tree_item.data(0, Qt.UserRole)
@@ -1513,18 +1558,12 @@ class MainWindow(QMainWindow):
                     # Para outros modos como formdata, urlencoded, o _gerar_curl atual usa -d.
                     # Uma representação ideal exigiria modificar _gerar_curl para usar -F etc.
                     # Por ora, passamos o conteúdo 'raw' se disponível, ou uma serialização JSON/string.
-                    if 'raw' in body_data_from_dict: # Se houver um campo 'raw' mesmo em outros modos
-                        corpo_preparado = body_data_from_dict.get('raw', '')
-                    elif mode in ['formdata', 'urlencoded'] and body_data_from_dict.get(mode):
-                        # Tenta uma representação simples; idealmente _gerar_curl seria aprimorado.
-                        # Para agora, vamos tentar montar uma string simples ou JSON.
-                        # Uma string vazia ou JSON do dict podem ser mais seguros para _gerar_curl como está.
-                        try:
-                            corpo_preparado = json.dumps(body_data_from_dict.get(mode))
-                        except TypeError:
-                            corpo_preparado = str(body_data_from_dict.get(mode))
-                    else: # Se não for raw e não tiver um modo conhecido com dados
-                         corpo_preparado = '' 
+                    # Uma string vazia ou JSON do dict podem ser mais seguros para _gerar_curl como está.
+                    try:
+                        corpo_preparado = json.dumps(body_data_from_dict.get(mode))
+                    except TypeError:
+                        corpo_preparado = str(body_data_from_dict.get(mode))
+                    # corpo_preparado = body_data_from_dict.get('raw', '')
             
             # Gerar o comando cURL
             string_do_curl_gerada = self._gerar_curl(method, url_str, headers, corpo_preparado)
@@ -1539,7 +1578,6 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.warning(self, "Erro", f"Erro ao gerar ou copiar cURL: {str(e)}")
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
