@@ -1,5 +1,5 @@
 # Ignorar pastas e seus conteúdos
-data/
+data/*.json
 evidencia/
 
 # Python cache files
