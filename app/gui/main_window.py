@@ -26,6 +26,8 @@ from core.importer import Importer
 from core.executor import Executor
 from core.environment import EnvironmentManager
 from gui.main.configuration import Configuration
+from data.collection import CollectionRepository
+from data.environment import EnvironmentRepository
 
 # Desabilita avisos de SSL inseguros
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -48,11 +50,11 @@ class MainWindow(QMainWindow):
 
         Configuration._create_actions(self)
         Configuration._create_menu_bar(self)
-        self._setup_ui()
+        Configuration._setup_ui(self)
 
         # Carregar coleções e ambientes salvos
-        self.load_collections()
-        self.load_environments()
+        CollectionRepository.load(self, os)
+        EnvironmentRepository.load(self, os)
         self.update_environment_combo()
         self.update_edit_environments_menu()
         self.update_collections_view()
@@ -67,6 +69,7 @@ class MainWindow(QMainWindow):
 
     # Função para exibir o diálogo de edição de um ambiente específico
     def edit_environment(self, environment_name):
+        
         # Cria uma janela de diálogo
         dialog = QDialog(self)
         dialog.setWindowTitle(f'Editar Ambiente - {environment_name}')
@@ -96,255 +99,27 @@ class MainWindow(QMainWindow):
 
     # Função para salvar as alterações feitas em um ambiente
     def save_environment_changes(self, environment_name, variables_text, dialog):
+        
         # Analisa as variáveis a partir do texto
         variables = {}
         for line in variables_text.strip().split('\n'):
             if '=' in line:
                 key, value = line.split('=', 1)
                 variables[key.strip()] = value.strip()
+        
         # Atualiza o ambiente
         self.environments.environments[environment_name] = variables
+
         # Salva os ambientes em arquivo
-        self.save_environments()
+        EnvironmentRepository.save(self, os)
+        
         # Atualiza o combo box e o menu de edição
         self.update_environment_combo()
         self.update_edit_environments_menu()
+        
         # Fecha o diálogo
         dialog.accept()
-        QMessageBox.information(self, 'Sucesso', f'Ambiente "{environment_name}" atualizado com sucesso!')
-
-    # Função para configurar a interface gráfica principal da janela
-    def _setup_ui(self):
-        # Cria o widget principal e o layout
-        main_widget = QWidget()
-        main_layout = QHBoxLayout()  # Usamos QHBoxLayout para colocar a árvore e os detalhes lado a lado
-
-        # Área de seleção de requisições (Árvore)
-        self.tree_widget = QTreeWidget()
-        self.tree_widget.setAccessibleName('Árvore de Coleções e Requisições')
-        self.tree_widget.setHeaderHidden(True)
-        self.tree_widget.itemSelectionChanged.connect(self.on_tree_item_selected)
-        self.tree_widget.setFocusPolicy(Qt.StrongFocus)  # Permitir foco via teclado
-
-        # Habilitar menu de contexto personalizado
-        self.tree_widget.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tree_widget.customContextMenuRequested.connect(self.on_tree_item_context_menu)
-
-        # Conectar o sinal de item ativado para expandir/contrair pastas
-        self.tree_widget.itemActivated.connect(self.on_item_activated)
-
-        # Instalar o filtro de eventos para capturar teclas
-        self.tree_widget.installEventFilter(self)
-
-        # Área de detalhes da requisição e resposta
-        self.details_widget = QWidget()
-        details_layout = QVBoxLayout()
-        self.details_widget.setLayout(details_layout)
-
-        # ComboBox para selecionar o ambiente ativo
-        self.environment_combo = QComboBox()
-        self.environment_combo.setAccessibleName('Selecionar Ambiente Ativo')
-        self.environment_combo.addItem('Nenhum')  # Opção para nenhum ambiente
-        self.environment_combo.currentIndexChanged.connect(self.on_environment_changed)
-        details_layout.addWidget(QLabel('Ambiente Ativo:'))
-        details_layout.addWidget(self.environment_combo)
-
-        # Tabs para detalhes da requisição
-        self.request_tabs = QTabWidget()
-        self.request_tabs.setAccessibleName('Detalhes da Requisição')
-
-        # Tab de Método HTTP
-        method_tab = QWidget()
-        method_layout = QVBoxLayout()
-
-        # Grupo de RadioButtons para selecionar o método HTTP
-        method_group_box = QGroupBox("Método HTTP:")
-        method_group_box.setAccessibleName('Método HTTP da Requisição')
-        method_type_layout = QVBoxLayout()
-        self.method_type_group = QButtonGroup()
-
-        # Definição dos RadioButtons para métodos HTTP
-        self.radio_get = QRadioButton("GET")
-        self.radio_get.setAccessibleName('Método GET')
-        self.radio_post = QRadioButton("POST")
-        self.radio_post.setAccessibleName('Método POST')
-        self.radio_put = QRadioButton("PUT")
-        self.radio_put.setAccessibleName('Método PUT')
-        self.radio_delete = QRadioButton("DELETE")
-        self.radio_delete.setAccessibleName('Método DELETE')
-        self.radio_patch = QRadioButton("PATCH")
-        self.radio_patch.setAccessibleName('Método PATCH')
-        self.radio_options = QRadioButton("OPTIONS")
-        self.radio_options.setAccessibleName('Método OPTIONS')
-        self.radio_head = QRadioButton("HEAD")
-        self.radio_head.setAccessibleName('Método HEAD')
-
-        # Adicionar os RadioButtons ao grupo
-        self.method_type_group.addButton(self.radio_get)
-        self.method_type_group.addButton(self.radio_post)
-        self.method_type_group.addButton(self.radio_put)
-        self.method_type_group.addButton(self.radio_delete)
-        self.method_type_group.addButton(self.radio_patch)
-        self.method_type_group.addButton(self.radio_options)
-        self.method_type_group.addButton(self.radio_head)
-
-        # Adicionar os RadioButtons ao layout
-        method_type_layout.addWidget(self.radio_get)
-        method_type_layout.addWidget(self.radio_post)
-        method_type_layout.addWidget(self.radio_put)
-        method_type_layout.addWidget(self.radio_delete)
-        method_type_layout.addWidget(self.radio_patch)
-        method_type_layout.addWidget(self.radio_options)
-        method_type_layout.addWidget(self.radio_head)
-        method_group_box.setLayout(method_type_layout)
-
-        # Conectar o sinal de mudança de seleção
-        self.method_type_group.buttonClicked.connect(self.on_method_changed)
-
-        method_layout.addWidget(method_group_box)
-        method_tab.setLayout(method_layout)
-        self.request_tabs.addTab(method_tab, 'Método')
-
-        # Tab de URL
-        url_tab = QWidget()
-        url_layout = QVBoxLayout()
-        self.url_line_edit = QLineEdit()
-        self.url_line_edit.setAccessibleName('URL da Requisição')
-        url_layout.addWidget(self.url_line_edit)
-        url_tab.setLayout(url_layout)
-        self.request_tabs.addTab(url_tab, 'URL')
-
-        # Tab de Headers
-        headers_tab = QWidget()
-        headers_layout = QVBoxLayout()
-        self.headers_text = QPlainTextEdit()
-        self.headers_text.setAccessibleName('Headers da Requisição')
-        self.headers_text.setTabChangesFocus(True)
-        headers_layout.addWidget(self.headers_text)
-        headers_tab.setLayout(headers_layout)
-        self.request_tabs.addTab(headers_tab, 'Headers')
-
-        # Tab de Autenticação (simplificado)
-        auth_tab = QWidget()
-        auth_layout = QVBoxLayout()
-        self.auth_text = QPlainTextEdit()
-        self.auth_text.setAccessibleName('Autenticação da Requisição')
-        self.auth_text.setTabChangesFocus(True)
-        auth_layout.addWidget(self.auth_text)
-        auth_tab.setLayout(auth_layout)
-        self.request_tabs.addTab(auth_tab, 'Autenticação')
-
-        # Tab de Corpo (Body)
-        body_tab = QWidget()
-        body_layout = QVBoxLayout()
-        body_form_layout = QFormLayout()
-
-        # Grupo de RadioButtons para selecionar o tipo de corpo
-        body_type_group_box = QGroupBox("Tipo de Corpo:")
-        body_type_layout = QVBoxLayout()
-        self.body_type_group = QButtonGroup()
-
-        # Definição dos RadioButtons
-        self.radio_raw_json = QRadioButton("Raw (JSON)")
-        self.radio_raw_json.setAccessibleName('Corpo Raw JSON')
-        self.radio_raw_xml = QRadioButton("Raw (XML)")
-        self.radio_raw_xml.setAccessibleName('Corpo Raw XML')
-        self.radio_raw_text = QRadioButton("Raw (Text)")
-        self.radio_raw_text.setAccessibleName('Corpo Raw Text')
-        self.radio_form_data = QRadioButton("Form Data")
-        self.radio_form_data.setAccessibleName('Corpo Form Data')
-        self.radio_urlencoded = QRadioButton("x-www-form-urlencoded")
-        self.radio_urlencoded.setAccessibleName('Corpo x-www-form-urlencoded')
-
-        # Adiciona os RadioButtons ao grupo
-        self.body_type_group.addButton(self.radio_raw_json)
-        self.body_type_group.addButton(self.radio_raw_xml)
-        self.body_type_group.addButton(self.radio_raw_text)
-        self.body_type_group.addButton(self.radio_form_data)
-        self.body_type_group.addButton(self.radio_urlencoded)
-
-        # Conecta o sinal de clique dos RadioButtons
-        self.body_type_group.buttonClicked.connect(self.on_body_type_changed)
-
-        # Adiciona os RadioButtons ao layout
-        body_type_layout.addWidget(self.radio_raw_json)
-        body_type_layout.addWidget(self.radio_raw_xml)
-        body_type_layout.addWidget(self.radio_raw_text)
-        body_type_layout.addWidget(self.radio_form_data)
-        body_type_layout.addWidget(self.radio_urlencoded)
-        body_type_group_box.setLayout(body_type_layout)
-
-        # TextEdit para o conteúdo do corpo
-        self.body_text = QPlainTextEdit()
-        self.body_text.setAccessibleName('Corpo da Requisição')
-        self.body_text.setTabChangesFocus(True)
-
-        # Adicionar widgets ao layout
-        body_layout.addWidget(body_type_group_box)
-        body_layout.addWidget(self.body_text)
-        body_tab.setLayout(body_layout)
-        self.request_tabs.addTab(body_tab, 'Body')
-
-        # Adiciona os widgets ao layout de detalhes
-        details_layout.addWidget(QLabel("Requisição:"))
-        details_layout.addWidget(self.request_tabs)
-
-        # Botão para executar a requisição
-        self.execute_button = QPushButton('Executar Requisição')
-        self.execute_button.setAccessibleName('Botão Executar Requisição')
-        self.execute_button.clicked.connect(self.execute_request)
-        self.execute_button.setEnabled(False)
-        details_layout.addWidget(self.execute_button)
-
-        # Checkbox para desabilitar SSL
-        self.disable_ssl_checkbox = QCheckBox('Desabilitar verificação SSL')
-        self.disable_ssl_checkbox.setAccessibleName('Checkbox Desabilitar SSL')
-        details_layout.addWidget(self.disable_ssl_checkbox)
-
-        # Tabs para detalhes da resposta
-        self.response_tabs = QTabWidget()
-        self.response_tabs.setAccessibleName('Detalhes da Resposta')
-
-        # Tab de Status Code
-        status_code_tab = QWidget()
-        status_code_layout = QVBoxLayout()
-        self.status_code_text = QPlainTextEdit()
-        self.status_code_text.setAccessibleName('Código de Status da Resposta')
-        self.status_code_text.setReadOnly(True)
-        status_code_layout.addWidget(self.status_code_text)
-        status_code_tab.setLayout(status_code_layout)
-        self.response_tabs.addTab(status_code_tab, 'Status Code')
-
-        # Tab de Headers da Resposta
-        response_headers_tab = QWidget()
-        response_headers_layout = QVBoxLayout()
-        self.response_headers_text = QPlainTextEdit()
-        self.response_headers_text.setAccessibleName('Headers da Resposta')
-        self.response_headers_text.setReadOnly(True)
-        response_headers_layout.addWidget(self.response_headers_text)
-        response_headers_tab.setLayout(response_headers_layout)
-        self.response_tabs.addTab(response_headers_tab, 'Headers')
-
-        # Tab de Body da Resposta
-        response_body_tab = QWidget()
-        response_body_layout = QVBoxLayout()
-        self.response_body_text = QPlainTextEdit()
-        self.response_body_text.setAccessibleName('Body da Resposta')
-        self.response_body_text.setReadOnly(True)
-        response_body_layout.addWidget(self.response_body_text)
-        response_body_tab.setLayout(response_body_layout)
-        self.response_tabs.addTab(response_body_tab, 'Body')
-
-        # Adiciona a área de resposta ao layout
-        details_layout.addWidget(QLabel("Resposta:"))
-        details_layout.addWidget(self.response_tabs)
-
-        # Adiciona o widget de seleção e o de detalhes ao layout principal
-        main_layout.addWidget(self.tree_widget, 1)  # 1 para definir a proporção de redimensionamento
-        main_layout.addWidget(self.details_widget, 3)  # 3 para definir a proporção de redimensionamento
-        main_widget.setLayout(main_layout)
-
-        self.setCentralWidget(main_widget)
+        QMessageBox.information(self, 'Sucesso', f'Ambiente "{environment_name}" atualizado com sucesso!')    
 
     # Função para lidar com a mudança do método HTTP selecionado
     def on_method_changed(self, button):
@@ -543,7 +318,9 @@ class MainWindow(QMainWindow):
         new_coll = {'info': {'name': name.strip()}, 'item': []}
         self.collections.append(new_coll)
         self.update_collections_view()
-        self.save_collections()
+
+        CollectionRepository.save(self, os)
+        
         QMessageBox.information(self, 'Sucesso', f'Coleção "{name}" criada.')
 
     # Função para importar um ambiente do Postman
@@ -851,57 +628,15 @@ class MainWindow(QMainWindow):
 
     # Função para lidar com o evento de fechamento da janela
     def closeEvent(self, event):
+        
         if self.current_request_data:
             self.update_current_request_data_from_ui()
-            # Não precisamos atualizar a coleção aqui, pois o objeto já está atualizado
-        self.save_collections()
-        self.save_environments()
-        event.accept()  # Aceita o evento de fechamento
+        
+        CollectionRepository.save(self, os)
+        EnvironmentRepository.save(self, os)
+        event.accept()  # Aceita o evento de fechamento    
 
-    # Função para salvar as coleções em arquivo
-    def save_collections(self):
-        data_dir = 'data'
-        os.makedirs(data_dir, exist_ok=True)
-        collections_file = os.path.join(data_dir, 'collections.json')
-        try:
-            with open(collections_file, 'w', encoding='utf-8') as f:
-                json.dump(self.collections, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            QMessageBox.warning(self, "Aviso", f"Falha ao salvar as coleções:\n{e}")
-
-    # Função para carregar as coleções de arquivo
-    def load_collections(self):
-        data_dir = 'data'
-        collections_file = os.path.join(data_dir, 'collections.json')
-        if os.path.exists(collections_file):
-            try:
-                with open(collections_file, 'r', encoding='utf-8') as f:
-                    self.collections = json.load(f)
-            except Exception as e:
-                QMessageBox.warning(self, "Aviso", f"Falha ao carregar as coleções:\n{e}")
-
-    # Função para salvar os ambientes em arquivo
-    def save_environments(self):
-        data_dir = 'data'
-        os.makedirs(data_dir, exist_ok=True)
-        environments_file = os.path.join(data_dir, 'environments.json')
-        try:
-            with open(environments_file, 'w', encoding='utf-8') as f:
-                json.dump(self.environments.environments, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            QMessageBox.warning(self, "Aviso", f"Falha ao salvar os ambientes:\n{e}")
-
-    # Função para carregar os ambientes de arquivo
-    def load_environments(self):
-        data_dir = 'data'
-        environments_file = os.path.join(data_dir, 'environments.json')
-        if os.path.exists(environments_file):
-            try:
-                with open(environments_file, 'r', encoding='utf-8') as f:
-                    self.environments.environments = json.load(f)
-            except Exception as e:
-                QMessageBox.warning(self, "Aviso", f"Falha ao carregar os ambientes:\n{e}")
-
+    # Função para copiar o comando cURL de uma requisição
     def eventFilter(self, source, event):
         if source == self.tree_widget and event.type() == event.KeyPress:
             if event.key() in (Qt.Key_Menu, Qt.Key_F10) and event.modifiers() & Qt.ShiftModifier:
@@ -952,7 +687,7 @@ class MainWindow(QMainWindow):
         prefix = 'Pasta' if tipo == 'folder' else 'Requisição'
         tree_item.setText(0, f'{prefix}: {novo.strip()}')
 
-        self.save_collections()
+        CollectionRepository.save(self, os)
         QMessageBox.information(self, 'Sucesso', f'{prefix.capitalize()} renomeada para "{novo.strip()}"')
 
     # Função para exibir o menu de contexto ao clicar com o botão direito na árvore
@@ -1037,7 +772,7 @@ class MainWindow(QMainWindow):
                 elif isinstance(parent, list):
                     parent.pop(index)
 
-            self.save_collections()
+            CollectionRepository.save(self, os)
             self.update_collections_view()
             QMessageBox.information(self, 'Sucesso', f'{tipo.capitalize()} excluída com sucesso.')
         except Exception as e:
@@ -1063,7 +798,7 @@ class MainWindow(QMainWindow):
             # Garante que existe a chave 'item' (lista de itens)
             obj.setdefault('item', []).append({'name': nome.strip(), 'item': []})
 
-            self.save_collections()
+            CollectionRepository.save(self, os)
             self.update_collections_view()
             QMessageBox.information(self, 'Sucesso', f'Pasta "{nome.strip()}" criada com sucesso.')
         except Exception as e:
@@ -1436,7 +1171,7 @@ class MainWindow(QMainWindow):
             return
 
         # 6. Persistir e atualizar UI
-        self.save_collections()
+        CollectionRepository.save(self, os)
         self.update_collections_view()
         QMessageBox.information(
             self, "Sucesso",
