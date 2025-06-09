@@ -1,0 +1,113 @@
+## **Guia de Scripts para o RuthClient**
+
+O RuthClient permite a execução de scripts Python para automatizar e dinamizar suas requisições HTTP, de forma similar ao Postman. Existem dois pontos de execução de scripts:
+
+1.  **Scripts de Pré-Requisição (`prerequest`):** Código que roda **antes** da sua requisição ser enviada. Ideal para preparar dados, gerar autenticação ou modificar a requisição dinamicamente.
+2.  **Scripts de Teste (`test`):** Código que roda **após** a resposta da sua requisição ser recebida. Perfeito para validar a resposta e extrair dados para usar em requisições futuras (encadeamento).
+
+Em ambos os scripts, você tem acesso a um objeto global chamado `pm`, que é a sua ponte para interagir com a requisição, o ambiente e a resposta.
+
+---
+
+### **1. Scripts de Pré-Requisição** ⚙️
+
+Use estes scripts para manipular a requisição antes que ela seja enviada ao servidor.
+
+#### **O Objeto `pm` no Pré-Requisição**
+
+* `pm.environment.set("variavel", "valor")`: Cria ou atualiza uma variável no ambiente ativo.
+* `pm.environment.get("variavel")`: Obtém o valor de uma variável do ambiente.
+* `pm.crypto.encryptAESToString(dado, chave)`: Criptografa um dado usando o método compatível com CryptoJS.
+* `pm.request.headers.add("Nome-Header", "Valor-Header")`: Adiciona ou sobrescreve um header na requisição que será enviada.
+* `pm.request.url = "novo_url"`: Modifica a URL da requisição.
+
+#### **Exemplo 1: Criptografar Senha Antes do Envio (Nosso Caso de Uso)**
+
+Este é o cenário clássico para gerar uma senha criptografada e colocá-la em uma variável de ambiente.
+
+**No campo "Pré-Requisição (Python)":**
+```python
+# Script para criptografar uma senha antes de enviar
+
+# 1. Defina os dados de entrada
+senha_plana = "12345"
+usuario_chave = "777"
+
+console.log("PM_SCRIPT: Gerando senha criptografada...")
+
+try:
+    # 2. Usa a função de cripto para gerar a senha
+    senha_criptografada = pm.crypto.encryptAESToString(senha_plana, usuario_chave)
+    
+    # 3. Salva a senha criptografada em uma variável de ambiente
+    pm.environment.set("encryptedPassword", senha_criptografada)
+    
+    console.log("PM_SCRIPT: Variável 'encryptedPassword' definida no ambiente.")
+    
+except Exception as e:
+    console.log(f"PM_SCRIPT_ERRO: Falha ao criptografar: {e}")
+    raise
+```
+**Como usar:** No corpo (Body) da sua requisição, você usaria o placeholder `{{encryptedPassword}}`. O executor substituirá isso pelo valor gerado antes de enviar.
+
+---
+
+### **2. Scripts de Teste (Pós-Requisição)** ✅
+
+Use estes scripts para validar a resposta do servidor e para encadear requisições.
+
+#### **O Objeto `pm` no Script de Teste**
+
+Você tem acesso a tudo do pré-requisição e, adicionalmente, ao objeto `pm.response`:
+
+* `pm.response.code`: Retorna o código de status HTTP (ex: `200`, `404`, `500`).
+* `pm.response.json()`: Faz o "parse" do corpo da resposta e o retorna como um dicionário Python.
+* `pm.response.text()`: Retorna o corpo da resposta como uma string de texto puro.
+* `pm.response.headers`: Permite inspecionar os cabeçalhos da resposta.
+
+#### **Exemplo 1: Validar Status e Capturar um Token de Autenticação**
+
+Este é o uso mais comum: verificar se o login funcionou e capturar o token para usar em outras chamadas.
+
+**No campo "Teste (Python)":**
+```python
+# Script para validar a resposta de login e capturar o token
+
+console.log("PM_SCRIPT_TEST: Iniciando script de pós-requisição.")
+
+try:
+    # 1. Validação: Verifica se o status da resposta é 200 (OK)
+    assert pm.response.code == 200
+    console.log("[SUCESSO] Status da resposta é 200.")
+
+    # 2. Extração: Pega a resposta em formato JSON
+    response_data = pm.response.json()
+    
+    # 3. Captura: Extrai o valor da chave "accessToken" de forma segura
+    token = response_data.get("accessToken")
+
+    # 4. Encadeamento: Salva o token em uma variável para ser usado em outras requisições
+    if token:
+        pm.environment.set("meuTokenDeAcesso", token)
+        console.log("Variável 'meuTokenDeAcesso' salva no ambiente com sucesso.")
+    else:
+        console.log("[AVISO] Chave 'accessToken' não foi encontrada na resposta.")
+
+except AssertionError:
+    console.log(f"[FALHA] Teste falhou: Status esperado era 200, mas o recebido foi {pm.response.code}.")
+except Exception as e:
+    console.log(f"[ERRO] Falha ao processar o script de teste: {e}")
+```
+**Como usar:** Em uma requisição seguinte, na aba "Headers", você configuraria:
+* **Chave:** `Authorization`
+* **Valor:** `Bearer {{meuTokenDeAcesso}}`
+
+---
+
+### **Boas Práticas e Dicas** 💡
+
+* **Use `console.log()` بكثرة:** Esta é a sua melhor ferramenta de depuração. Use-a para imprimir o valor de variáveis e entender o fluxo do seu script. A saída aparecerá no terminal onde você iniciou a aplicação.
+* **Prefira `.get()` para Dicionários:** Ao extrair dados de uma resposta JSON, use `response_data.get("chave")` em vez de `response_data["chave"]`. O `.get()` é mais seguro, pois retorna `None` se a chave não existir, em vez de causar um erro que para o script.
+* **Use `try...except`:** Envolva sua lógica em blocos `try...except` para capturar erros (como um JSON inválido ou uma falha de asserção) e fornecer mensagens de log úteis, em vez de deixar a aplicação quebrar silenciosamente.
+
+Com estas ferramentas, seu RuthClient se torna uma plataforma de automação de API muito poderosa.
