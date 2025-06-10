@@ -34,7 +34,6 @@ from gui.main.environment import Environment
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class MainWindow(QMainWindow):
-    
     # Função principal para executar a aplicação
     def __init__(self):
         super().__init__()
@@ -48,13 +47,18 @@ class MainWindow(QMainWindow):
         self.current_request_data = None
         self.request_mapping = {}  # Mapear IDs únicos para itens de requisição
 
+        # Setup UI first, so the environment_combo will be created
+        Configuration._setup_ui(self)
+        
+        # Create actions and menu bar after UI setup
         Configuration._create_actions(self)
         Configuration._create_menu_bar(self)
-        Configuration._setup_ui(self)
 
-        # Carregar coleções e ambientes salvos
+        # Load collections and environments after UI setup
         CollectionRepository.load(self, os)
         EnvironmentRepository.load(self, os)
+        
+        # Now update the UI components that depend on loaded data
         self.update_environment_combo()
         self.update_edit_environments_menu()
         self.update_collections_view()
@@ -269,25 +273,6 @@ class MainWindow(QMainWindow):
         CollectionRepository.save(self, os)
         
         QMessageBox.information(self, 'Sucesso', f'Coleção "{name}" criada.')
-
-    # Função para importar um ambiente do Postman
-    def import_environment(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(
-            self, "Importar Ambiente", "", "JSON Files (*.json);;All Files (*)", options=options
-        )
-        if file_name:
-            try:
-                with open(file_name, 'r', encoding='utf-8') as file:
-                    data = json.load(file)
-                    environment_name = data.get('name', 'Sem Nome')
-                    variables = {item['key']: item['value'] for item in data.get('values', [])}
-                    self.environments.add_environment(environment_name, variables)
-                    QMessageBox.information(self, "Sucesso", f"Ambiente '{environment_name}' importado com sucesso!")
-                    self.update_environment_combo()
-                    self.update_edit_environments_menu()
-            except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Falha ao importar o ambiente:\n{e}")
 
     # Função para atualizar o combo box de ambientes
     def update_environment_combo(self):

@@ -7,6 +7,9 @@ from PyQt5.QtWidgets import (
     QMenu, QInputDialog, QDialogButtonBox
 )
 from PyQt5.QtCore import Qt
+import os
+import json
+from gui.main.environment import Environment
 
 class Configuration:
 
@@ -43,7 +46,7 @@ class Configuration:
         # Edit Environments Submenu
         self.edit_environments_menu = environments_menu.addMenu('Editar')
         self.update_edit_environments_menu()
-
+  
     # Função para criar os actions
     def _create_actions(self):
         self.generate_pdf_action = QAction('Gerar Evidência em PDF', self)
@@ -68,7 +71,7 @@ class Configuration:
         self.exit_action.setStatusTip('Sair da aplicação')
 
         self.import_environment_action = QAction('Importar Ambiente', self)
-        self.import_environment_action.triggered.connect(self.import_environment)
+        self.import_environment_action.triggered.connect(lambda: Environment.import_environment(self))
         self.import_environment_action.setToolTip('Importar um ambiente do Postman')
         self.import_environment_action.setStatusTip('Importar um ambiente do Postman')
 
@@ -302,5 +305,5 @@ class Configuration:
         main_layout.addWidget(self.tree_widget, 1)  # 1 para definir a proporção de redimensionamento
         main_layout.addWidget(self.details_widget, 3)  # 3 para definir a proporção de redimensionamento
         main_widget.setLayout(main_layout)
-
+        
         self.setCentralWidget(main_widget)

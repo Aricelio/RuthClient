@@ -1,5 +1,6 @@
 import os
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPlainTextEdit, QPushButton, QMessageBox
+import json
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPlainTextEdit, QPushButton, QMessageBox, QFileDialog
 from data.environment import EnvironmentRepository
 
 class Environment:
@@ -33,6 +34,41 @@ class Environment:
 
         dialog.exec_()
 
+    # Função para importar um ambiente do Postman
+    def import_environment(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Importar Ambiente", "", "JSON Files (*.json);;All Files (*)", options=options
+        )
+        if file_name:
+            try:
+                with open(file_name, 'r', encoding='utf-8') as f:
+                    env_data = json.load(f)
+                
+                # Verifica se é um arquivo de ambiente do Postman
+                if 'name' in env_data and 'values' in env_data:
+                    env_name = env_data['name']
+                    variables = {}
+                    
+                    # Extrai as variáveis do arquivo
+                    for val in env_data['values']:
+                        if 'key' in val and 'value' in val and val.get('enabled', True):
+                            variables[val['key']] = val['value']
+                    
+                    # Adiciona o ambiente ao gerenciador
+                    self.environments.environments[env_name] = variables
+                    
+                    # Atualiza o combo box e salva em arquivo
+                    self.update_environment_combo()
+                    self.update_edit_environments_menu()
+                    EnvironmentRepository.save(self, os)
+                    
+                    QMessageBox.information(self, "Sucesso", f"Ambiente '{env_name}' importado com sucesso!")
+                else:
+                    QMessageBox.critical(self, "Erro", "O arquivo não parece ser um ambiente válido do Postman.")
+            except Exception as e:
+                QMessageBox.critical(self, "Erro", f"Falha ao importar o ambiente:\n{e}")
+
     # Função para salvar as alterações feitas em um ambiente
     def save_environment_changes(self, environment_name, variables_text, dialog):
         
@@ -55,4 +91,4 @@ class Environment:
         
         # Fecha o diálogo
         dialog.accept()
-        QMessageBox.information(self, 'Sucesso', f'Ambiente "{environment_name}" atualizado com sucesso!')    
+        QMessageBox.information(self, 'Sucesso', f'Ambiente "{environment_name}" atualizado com sucesso!')
