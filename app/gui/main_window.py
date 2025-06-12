@@ -8,32 +8,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import json
 import urllib3
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from datetime import datetime
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QAction, QFileDialog, QMessageBox,
-    QWidget, QVBoxLayout, QPlainTextEdit, QLabel, QPushButton, QTabWidget,
-    QLineEdit, QCheckBox, QRadioButton, QButtonGroup, QFormLayout, QDialog,
-    QTreeWidget, QTreeWidgetItem, QHBoxLayout, QGroupBox, QScrollArea, QComboBox,
-    QMenu, QInputDialog, QDialogButtonBox
-)
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QKeyEvent, QIcon
-from core.importer import Importer
+from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QMessageBox, QTreeWidgetItem, QMenu, QInputDialog
+from PyQt5.QtCore import Qt
 from core.executor import Executor
 from core.environment import EnvironmentManager
 from data.collection import CollectionRepository
 from data.environment import EnvironmentRepository
 from gui.main.configuration import Configuration
 from gui.main.environment import Environment
+from gui.main.curl import Curl
 
 # Desabilita avisos de SSL inseguros
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class MainWindow(QMainWindow):
+
     # Função principal para executar a aplicação
     def __init__(self):
         super().__init__()
@@ -47,35 +36,25 @@ class MainWindow(QMainWindow):
         self.current_request_data = None
         self.request_mapping = {}  # Mapear IDs únicos para itens de requisição
 
-        # Setup UI first, so the environment_combo will be created
+        # Setup UI
         Configuration._setup_ui(self)
-        
-        # Create actions and menu bar after UI setup
         Configuration._create_actions(self)
         Configuration._create_menu_bar(self)
 
-        # Load collections and environments after UI setup
+        # Load collections and environments
         CollectionRepository.load(self, os)
         EnvironmentRepository.load(self, os)
         
         # Now update the UI components that depend on loaded data
-        self.update_environment_combo()
-        self.update_edit_environments_menu()
-        self.update_collections_view()
-
-    # Função para editar as variaveis de ambiente no menu
-    def update_edit_environments_menu(self):
-        self.edit_environments_menu.clear()
-
-        for env_name in self.environments.environments.keys():
-            edit_action = QAction(env_name, self)
-            edit_action.triggered.connect(lambda checked, name=env_name: Environment.edit_environment(self, name))
-            self.edit_environments_menu.addAction(edit_action)   
+        Environment.update_environment_combo(self)
+        Environment.update_edit_environments_menu(self)
+        self.update_collections_view()  
 
     # Função para lidar com a mudança do método HTTP selecionado
     def on_method_changed(self, button):
         selected_method = button.text()
         print(f"Método HTTP selecionado: {selected_method}")
+
         # Atualiza o método na requisição atual, se houver
         if self.current_request_data:
             self.current_request_data['request']['method'] = selected_method
@@ -169,123 +148,6 @@ class MainWindow(QMainWindow):
         # Ação ao mudar o ambiente ativo
         selected_env = self.environment_combo.currentText()
         print(f'Ambiente ativo selecionado: {selected_env}')
-
-    # Função para importar uma coleção do Postman
-    def import_collection(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(
-            self, "Importar Coleção", "", "JSON Files (*.json);;All Files (*)", options=options
-        )
-        if file_name:
-            importer = Importer()
-            try:
-                collection = importer.import_collection(file_name)
-                self.collections.append(collection)
-                QMessageBox.information(self, "Sucesso", "Coleção importada com sucesso!")
-                self.update_collections_view()
-            except Exception as e:
-                QMessageBox.critical(self, "Erro", f"Falha ao importar a coleção:\n{e}")
-
-    # Função para importar uma requisição a partir de um comando cURL
-    def import_curl(self):
-        # 1) Solicita ao usuário o comando cURL
-        dialog = QDialog(self)
-        dialog.setWindowTitle('Importar cURL')
-        dialog.setModal(True)
-        layout = QVBoxLayout(dialog)
-
-        layout.addWidget(QLabel('Cole aqui o comando cURL:'))
-        curl_edit = QPlainTextEdit()
-        curl_edit.setTabChangesFocus(True)
-        curl_edit.setPlaceholderText('Digite o comando cURL...')
-        layout.addWidget(curl_edit)
-
-        btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btn_box.accepted.connect(dialog.accept)
-        btn_box.rejected.connect(dialog.reject)
-        layout.addWidget(btn_box)
-
-        if dialog.exec_() != QDialog.Accepted:
-            return
-
-        curl_cmd = curl_edit.toPlainText().strip()
-        if not curl_cmd:
-            return
-
-        # 2) Converte para objeto Postman-like
-        try:
-            importer = Importer()
-            request_item = importer.import_curl(curl_cmd)
-        except Exception as e:
-            QMessageBox.critical(self, 'Erro', f'Falha ao parsear cURL:\n{e}')
-            return
-
-        # 3) Pergunta onde salvar e qual nome dar
-        save_dlg = QDialog(self)
-        save_dlg.setWindowTitle('Salvar requisição importada')
-        form = QFormLayout(save_dlg)
-
-        combo = QComboBox()
-        combo.addItems([c.get('info', {}).get('name', 'Sem Nome') for c in self.collections])
-        form.addRow('Coleção:', combo)
-
-        name_edit = QLineEdit(request_item.get('name', 'Nova Requisição'))
-        form.addRow('Nome:', name_edit)
-
-        save_btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        save_btns.accepted.connect(save_dlg.accept)
-        save_btns.rejected.connect(save_dlg.reject)
-        form.addRow(save_btns)
-
-        if save_dlg.exec_() == QDialog.Accepted:
-            idx = combo.currentIndex()
-
-            # Adicionar verificação para o índice da coleção
-            if not self.collections:
-                QMessageBox.warning(self, 'Nenhuma Coleção', 'Não há coleções disponíveis para adicionar a requisição.')
-                return
-            if idx < 0 or idx >= len(self.collections):
-                QMessageBox.critical(self, 'Erro de Índice', f'Índice de coleção inválido: {idx}')
-                return
-
-            collection = self.collections[idx]
-            collection.setdefault('item', []).append(request_item)
-
-            # Limpamos a seleção anterior para não sobrescrever nada
-            self.current_request_data = None
-
-            # Agora redesenha toda a árvore com o item recém-adicionado
-            self.update_collections_view()
-
-            QMessageBox.information(self, 'Sucesso', 'Requisição importada com sucesso!')
-
-    # Função para criar uma nova coleção vazia
-    def create_collection(self):
-        name, ok = QInputDialog.getText(self, 'Nova Coleção', 'Nome da nova coleção:')
-
-        if not ok or not name.strip():
-            return
-        
-        new_coll = {'info': {'name': name.strip()}, 'item': []}
-        self.collections.append(new_coll)
-        self.update_collections_view()
-
-        CollectionRepository.save(self, os)
-        
-        QMessageBox.information(self, 'Sucesso', f'Coleção "{name}" criada.')
-
-    # Função para atualizar o combo box de ambientes
-    def update_environment_combo(self):
-        current_env = self.environment_combo.currentText()
-        self.environment_combo.blockSignals(True)  # Evita disparar o sinal
-        self.environment_combo.clear()
-        self.environment_combo.addItem('Nenhum')
-        self.environment_combo.addItems(self.environments.environments.keys())
-        # Restaura a seleção anterior, se possível
-        index = self.environment_combo.findText(current_env)
-        if index != -1:
-            self.environment_combo.setCurrentIndex(index)
-        self.environment_combo.blockSignals(False)
 
     # Função para atualizar a exibição das coleções na árvore
     def update_collections_view(self):
@@ -629,17 +491,16 @@ class MainWindow(QMainWindow):
             return
 
         data = item.data(0, Qt.UserRole) or {}
-        tipo = data.get('type')
+        type = data.get('type')
         menu = QMenu(self)
 
-        if tipo == 'request':
+        if type == 'request':
             rename_act = QAction('Renomear', self)
             rename_act.triggered.connect(lambda _, it=item: self._rename_item(it))
             menu.addAction(rename_act)
 
-            # Adiciona a nova ação "Copiar cURL"
             copy_curl_action = QAction('Copiar cURL', self)
-            copy_curl_action.triggered.connect(lambda _, it=item: self.copy_curl_from_request(it))
+            copy_curl_action.triggered.connect(lambda _, it=item: Curl.copy_curl_from_request(self, it))
             menu.addAction(copy_curl_action)
 
             move_act = QAction('Mover para...', self)
@@ -650,7 +511,7 @@ class MainWindow(QMainWindow):
             del_act.triggered.connect(lambda _, it=item: self._delete_item(it))
             menu.addAction(del_act)
 
-        elif tipo == 'folder':
+        elif type == 'folder':
             rename_act = QAction('Renomear', self)
             rename_act.triggered.connect(lambda _, it=item: self._rename_item(it))
             menu.addAction(rename_act)
@@ -659,7 +520,7 @@ class MainWindow(QMainWindow):
             del_act.triggered.connect(lambda _, it=item: self._delete_item(it))
             menu.addAction(del_act)
 
-        elif tipo == 'collection':
+        elif type == 'collection':
             new_folder_act = QAction('Nova Pasta', self)
             new_folder_act.triggered.connect(lambda _, it=item: self._new_folder(it))
             menu.addAction(new_folder_act)
@@ -735,211 +596,6 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, 'Sucesso', f'Pasta "{nome.strip()}" criada com sucesso.')
         except Exception as e:
             QMessageBox.critical(self, 'Erro', f'Falha ao criar a pasta:\n{e}')
-
-    # Função para gerar um comando cURL a partir dos dados da requisição
-    def _generate_curl(self, method, url, headers, body):
-        curl = f"curl -X {method.upper()} '{url}'"
-
-        for h in headers:
-            key = h.get('key', '')
-            value = h.get('value', '')
-            curl += f" -H '{key}: {value}'"
-
-        if body:
-            if isinstance(body, str):
-                body_str = body.replace("'", "\\'")
-            else:
-                try:
-                    body_str = json.dumps(body, ensure_ascii=False)
-                except Exception:
-                    body_str = str(body)
-                body_str = body_str.replace("'", "\\'")
-            curl += f" -d '{body_str}'"
-
-        return curl
-
-    # Função para gerar um PDF com evidências da requisição
-    def generate_pdf_evidence(self):
-        if not self.current_request_data:
-            QMessageBox.warning(self, "Aviso", "Nenhuma requisição selecionada.")
-            return
-
-        try:
-            evid_dir = os.path.join(os.getcwd(), "evidência")
-            os.makedirs(evid_dir, exist_ok=True)
-
-            now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            file_name = f"evidencia_{now}.pdf"
-            file_path = os.path.join(evid_dir, file_name)
-
-            # Constantes e Estilos
-            left_margin = 50
-            right_margin = 50
-            top_margin = 50
-            bottom_margin = 50
-            text_start_x = 60
-
-            c = canvas.Canvas(file_path, pagesize=A4)
-            width, height = A4
-            available_width = width - text_start_x - right_margin
-
-            styles = getSampleStyleSheet()
-            para_style = styles['Normal']
-            para_style.fontName = 'Helvetica'
-            para_style.fontSize = 10
-            para_style.leading = 12
-
-            request = self.current_request_data.get('request', {})
-            method = request.get('method', 'GET')
-            url = request.get('url', '')
-            if isinstance(url, dict):
-                url = url.get('raw', '')
-
-            headers = request.get('header', [])
-            body_content_from_request = None
-            if request.get('body', {}).get('mode') == 'raw':
-                try:
-                    # Tenta carregar como JSON para formatação, mas usa o raw string se falhar
-                    raw_body_text = request['body'].get('raw', '')
-                    parsed_json = json.loads(raw_body_text)
-                    body_content_from_request = json.dumps(parsed_json, indent=2, ensure_ascii=False)
-                except Exception:
-                    body_content_from_request = request['body'].get('raw', '')
-
-
-            curl_cmd = self._generate_curl(method, url, headers, body_content_from_request) # Passa o body formatado ou raw
-            status_code = self.status_code_text.toPlainText().strip()
-            response_body = self.response_body_text.toPlainText().strip() # Este é o que será renderizado com Paragraph
-
-            # Posição Inicial Y
-            current_y = height - top_margin
-
-            # Título do PDF
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(left_margin, current_y, "Evidência de Requisição HTTP")
-            current_y -= 30 # Espaço após o título principal
-
-            c.setFont("Helvetica-Bold", 12)
-            if current_y - 14 < bottom_margin: # 14 é uma altura aproximada para o título
-                c.showPage()
-                current_y = height - top_margin
-                c.setFont("Helvetica-Bold", 14) # Redefine a fonte do título principal se houver quebra
-                c.drawString(left_margin, current_y, "Evidência de Requisição HTTP")
-                current_y -= 30
-            c.setFont("Helvetica-Bold", 12) # Garante a fonte do título da seção
-            c.drawString(left_margin, current_y, "cURL:")
-            current_y -= 20 # Espaço antes do conteúdo do curl
-
-            curl_paragraph = Paragraph(curl_cmd, para_style)
-            p_w, p_h = curl_paragraph.wrapOn(c, available_width, height) # height aqui é um limite máximo grande
-
-            if current_y - p_h < bottom_margin:
-                c.showPage()
-                current_y = height - top_margin
-                # Se o título do cURL foi para a nova página, redesenhe-o
-                c.setFont("Helvetica-Bold", 12)
-                c.drawString(left_margin, current_y, "cURL:") # Redesenha o título se necessário
-                current_y -= 20
-            
-            curl_paragraph.drawOn(c, text_start_x, current_y - p_h)
-            current_y -= (p_h + 20) # Espaço após o curl
-
-            # Renderização do Status Code
-            if current_y - 12 - 15 - 12 < bottom_margin: # Alturas aproximadas para título e valor
-                c.showPage()
-                current_y = height - top_margin
-            
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(left_margin, current_y, "Status Code:")
-            current_y -= 15
-            c.setFont("Helvetica", 10)
-            c.drawString(text_start_x, current_y, status_code)
-            current_y -= 25 # Espaço após status code
-
-            # Renderização do Body (response_body)
-            if current_y - 12 < bottom_margin: # Altura aproximada para o título
-                c.showPage()
-                current_y = height - top_margin
-            
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(left_margin, current_y, "Body:")
-            current_y -= 15 # Espaço antes do conteúdo do body
-
-            if response_body: # Apenas processar se houver corpo de resposta
-                # Escapar entidades HTML para evitar problemas com caracteres como <, >, &
-                from xml.sax.saxutils import escape
-                escaped_response_body = escape(response_body)
-                # Substituir novas linhas por <br/> para que o Paragraph as interprete corretamente
-                formatted_response_body_for_paragraph = escaped_response_body.replace('\\n', '<br/>').replace('\\r\\n', '<br/>').replace('\\r', '<br/>')
-
-
-                body_paragraph = Paragraph(formatted_response_body_for_paragraph, para_style)
-                
-                # Obter a altura total que o parágrafo ocuparia se não houvesse restrição de altura da página
-                _, total_h = body_paragraph.wrapOn(c, available_width, height) 
-
-                # Se o parágrafo inteiro couber no espaço restante da página atual
-                if current_y - total_h >= bottom_margin:
-                    body_paragraph.drawOn(c, text_start_x, current_y - total_h)
-                    current_y -= total_h
-                else:
-                    # O parágrafo não cabe inteiro, precisa ser dividido
-                    remaining_paragraph_obj = body_paragraph
-                    
-                    while remaining_paragraph_obj:
-                        # Calcula o espaço vertical disponível na página atual (ou nova página)
-                        space_on_page = current_y - bottom_margin
-                        if space_on_page <= para_style.leading: # Não há espaço nem para uma linha
-                            c.showPage()
-                            current_y = height - top_margin
-                            space_on_page = current_y - bottom_margin
-
-                        # Tenta dividir o parágrafo restante para caber no espaço disponível
-                        try:
-                            parts = remaining_paragraph_obj.split(available_width, space_on_page)
-                        except Exception: 
-                            parts = [] 
-
-                        if parts and len(parts) > 0:
-                            part_to_draw = parts[0]
-                            _, part_h = part_to_draw.wrapOn(c, available_width, space_on_page)
-                            
-                            part_to_draw.drawOn(c, text_start_x, current_y - part_h)
-                            current_y -= part_h
-
-                            if len(parts) > 1:
-                                remaining_text_parts = []
-                                for p_idx in range(1, len(parts)):
-                                    if hasattr(parts[p_idx], 'text'):
-                                        remaining_text_parts.append(parts[p_idx].text)
-                                    elif isinstance(parts[p_idx], str):
-                                        remaining_text_parts.append(parts[p_idx])
-                                
-                                remaining_text = "".join(remaining_text_parts)
-
-                                if remaining_text.strip(): # Verifica se há texto útil
-                                    remaining_paragraph_obj = Paragraph(remaining_text, para_style)
-                                else:
-                                    remaining_paragraph_obj = None 
-                                
-                                if remaining_paragraph_obj: 
-                                    c.showPage()
-                                    current_y = height - top_margin
-                            else:
-                                remaining_paragraph_obj = None
-                        else:
-                            if remaining_paragraph_obj: 
-                                 _, h_rem = remaining_paragraph_obj.wrapOn(c, available_width, space_on_page)
-                                 if h_rem <= space_on_page : 
-                                    remaining_paragraph_obj.drawOn(c, text_start_x, current_y - h_rem)
-                                    current_y -= h_rem
-                            remaining_paragraph_obj = None 
-            
-            c.save()
-            QMessageBox.information(self, "Sucesso", f"Evidência gerada em:\\n{file_path}")
-
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Falha ao gerar evidência:\\n{e}")
 
     # Função para navegar através de uma estrutura aninhada de dicionários e listas para encontrar um nó específico.
     def _navigate_to_node(self, root_container, path_list):
@@ -1109,86 +765,6 @@ class MainWindow(QMainWindow):
             self, "Sucesso",
             f"Requisição movida para “{selected_display_name}”."
         )
-
-    # Função para copiar o comando cURL de uma requisição para a área de transferência
-    def copy_curl_from_request(self, tree_item):
-        try:
-            data = tree_item.data(0, Qt.UserRole)
-            if not data or data.get('type') != 'request':
-                QMessageBox.warning(self, "Erro", "Item selecionado não é uma requisição válida.")
-                return
-
-            request_id = data.get('id')
-            if not request_id:
-                QMessageBox.warning(self, "Erro", "ID da requisição não encontrado no item da árvore.")
-                return
-            
-            request_data_dict_from_mapping = self.request_mapping.get(request_id)
-
-            # Determinar a fonte correta dos dados da requisição
-            request_data_dict_to_use = None
-            is_current_request = bool(self.current_request_data and request_data_dict_from_mapping is self.current_request_data)
-
-            if is_current_request:
-                # A requisição selecionada é a que está ativa na UI.
-                # Garante que os dados da UI sejam salvos no objeto current_request_data.
-                self.update_current_request_data_from_ui() # Salva edições da UI
-                request_data_dict_to_use = self.current_request_data # Usar os dados atualizados da UI
-            else:
-                # A requisição selecionada NÃO é a que está ativa na UI.
-                # Usar os dados armazenados no request_mapping.
-                request_data_dict_to_use = request_data_dict_from_mapping
-
-            if not request_data_dict_to_use:
-                QMessageBox.warning(self, "Erro", f"Dados da requisição com ID {request_id} não encontrados.")
-                return
-
-            request_details = request_data_dict_to_use.get('request', {})
-            method = request_details.get('method', 'GET')
-            
-            url_data = request_details.get('url', {})
-            if isinstance(url_data, dict):
-                url_str = url_data.get('raw', '')
-            else:
-                url_str = str(url_data)
-
-            headers = request_details.get('header', [])
-            body_data_from_dict = request_details.get('body', {})
-            
-            corpo_preparado = ''
-            if is_current_request:
-                # Se é a requisição atual (e já foi atualizada da UI), o corpo vem do self.body_text
-                # Isso garante que o cURL reflita o que está visível e editável na aba Body
-                corpo_preparado = self.body_text.toPlainText()
-            else:
-                # Para requisições não ativas na UI, usar os dados do dicionário
-                mode = body_data_from_dict.get('mode')
-                if mode == 'raw':
-                    corpo_preparado = body_data_from_dict.get('raw', '')
-                elif body_data_from_dict:
-                    # Para outros modos como formdata, urlencoded, o _gerar_curl atual usa -d.
-                    # Uma representação ideal exigiria modificar _gerar_curl para usar -F etc.
-                    # Por ora, passamos o conteúdo 'raw' se disponível, ou uma serialização JSON/string.
-                    # Uma string vazia ou JSON do dict podem ser mais seguros para _gerar_curl como está.
-                    try:
-                        corpo_preparado = json.dumps(body_data_from_dict.get(mode))
-                    except TypeError:
-                        corpo_preparado = str(body_data_from_dict.get(mode))
-                    # corpo_preparado = body_data_from_dict.get('raw', '')
-            
-            # Gerar o comando cURL
-            string_do_curl_gerada = self._generate_curl(method, url_str, headers, corpo_preparado)
-
-            # Copiar para a área de transferência
-            clipboard = QApplication.clipboard()
-            if clipboard:
-                clipboard.setText(string_do_curl_gerada)
-                QMessageBox.information(self, "Sucesso", "Comando cURL copiado para a área de transferência!")
-            else:
-                QMessageBox.warning(self, "Erro", "Não foi possível acessar a área de transferência.")
-
-        except Exception as e:
-            QMessageBox.warning(self, "Erro", f"Erro ao gerar ou copiar cURL: {str(e)}")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

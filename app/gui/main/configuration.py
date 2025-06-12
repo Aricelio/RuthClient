@@ -10,6 +10,9 @@ from PyQt5.QtCore import Qt
 import os
 import json
 from gui.main.environment import Environment
+from gui.main.collection import Collection
+from gui.main.curl import Curl
+from gui.main.evidence import Evidence
 
 class Configuration:
 
@@ -45,23 +48,23 @@ class Configuration:
 
         # Edit Environments Submenu
         self.edit_environments_menu = environments_menu.addMenu('Editar')
-        self.update_edit_environments_menu()
+        Environment.update_edit_environments_menu(self)
   
     # Função para criar os actions
     def _create_actions(self):
         self.generate_pdf_action = QAction('Gerar Evidência em PDF', self)
-        self.generate_pdf_action.triggered.connect(self.generate_pdf_evidence)
+        self.generate_pdf_action.triggered.connect(lambda: Evidence.generate_pdf_evidence(self))
 
         self.new_collection_action = QAction('Nova Coleção', self)
-        self.new_collection_action.triggered.connect(self.create_collection)
+        self.new_collection_action.triggered.connect(lambda: Collection.create_collection(self))
         self.new_collection_action.setToolTip('Criar uma nova coleção vazia')
     
         self.import_curl_action = QAction('Importar cURL', self)
-        self.import_curl_action.triggered.connect(self.import_curl)
+        self.import_curl_action.triggered.connect(lambda: Curl.import_curl(self))
         self.import_curl_action.setToolTip('Importar requisição a partir de um comando cURL')
 
         self.import_collection_action = QAction('Importar Coleção', self)
-        self.import_collection_action.triggered.connect(self.import_collection)
+        self.import_collection_action.triggered.connect(lambda: Collection.import_collection(self))
         self.import_collection_action.setToolTip('Importar uma coleção do Postman')
         self.import_collection_action.setStatusTip('Importar uma coleção do Postman')
 
@@ -306,4 +309,4 @@ class Configuration:
         main_layout.addWidget(self.details_widget, 3)  # 3 para definir a proporção de redimensionamento
         main_widget.setLayout(main_layout)
         
-        self.setCentralWidget(main_widget)
+        self.setCentralWidget(main_widget)  

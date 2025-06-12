@@ -1,9 +1,18 @@
 import os
 import json
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPlainTextEdit, QPushButton, QMessageBox, QFileDialog
+from PyQt5.QtWidgets import QAction, QDialog, QVBoxLayout, QPlainTextEdit, QPushButton, QMessageBox, QFileDialog
 from data.environment import EnvironmentRepository
 
 class Environment:
+
+    # Função para editar as variaveis de ambiente no menu
+    def update_edit_environments_menu(self):
+        self.edit_environments_menu.clear()
+
+        for env_name in self.environments.environments.keys():
+            edit_action = QAction(env_name, self)
+            edit_action.triggered.connect(lambda checked, name=env_name: Environment.edit_environment(self, name))
+            self.edit_environments_menu.addAction(edit_action)   
 
     # Função para exibir o diálogo de edição de um ambiente específico
     def edit_environment(self, environment_name):
@@ -59,8 +68,8 @@ class Environment:
                     self.environments.environments[env_name] = variables
                     
                     # Atualiza o combo box e salva em arquivo
-                    self.update_environment_combo()
-                    self.update_edit_environments_menu()
+                    Environment.update_environment_combo(self)
+                    Environment.update_edit_environments_menu(self)
                     EnvironmentRepository.save(self, os)
                     
                     QMessageBox.information(self, "Sucesso", f"Ambiente '{env_name}' importado com sucesso!")
@@ -86,9 +95,25 @@ class Environment:
         EnvironmentRepository.save(self, os)
         
         # Atualiza o combo box e o menu de edição
-        self.update_environment_combo()
-        self.update_edit_environments_menu()
+        Environment.update_environment_combo(self)
+        Environment.update_edit_environments_menu(self)
         
         # Fecha o diálogo
         dialog.accept()
         QMessageBox.information(self, 'Sucesso', f'Ambiente "{environment_name}" atualizado com sucesso!')
+
+    # Função para atualizar o combo box de ambientes
+    def update_environment_combo(self):
+        current_env = self.environment_combo.currentText()
+        self.environment_combo.blockSignals(True)
+        self.environment_combo.clear()
+        self.environment_combo.addItem('Nenhum')
+        self.environment_combo.addItems(self.environments.environments.keys())
+
+        # Restaura a seleção anterior, se possível
+        index = self.environment_combo.findText(current_env)
+        
+        if index != -1:
+            self.environment_combo.setCurrentIndex(index)
+
+        self.environment_combo.blockSignals(False)
