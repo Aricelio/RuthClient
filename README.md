@@ -13,22 +13,22 @@ Uma aplicação para realizar requisições HTTP Rest voltada para acessibilidad
 #### Instalação das dependências
 Abra o terminal na pasta do projeto e execute:
 
-    ```
-    pip install -r requirements.txt
-    ```
+```
+pip install -r requirements.txt
+```
 
 #### Como executar o programa
 Ainda no terminal, execute:
 
-    ```
-    python main.py
-    ```
+```
+python main.py
+```
 
 Se estiver no Windows e possuir mais de uma versão do Python, use:
 
-    ```
-    python3 main.py
-    ```
+```
+python3 main.py
+```
 
 Pronto! O programa será iniciado.
 
@@ -45,21 +45,21 @@ An application to make HTTP Rest requests focused on accessibility.
 #### Installing dependencies
 Open the terminal in the project folder and run:
 
-    ```
-    pip install -r requirements.txt
-    ```
+```
+pip install -r requirements.txt
+```
 
 #### How to run the program
 Still in the terminal, run:
 
-    ```
+```
     python main.py
-    ```
+```
 
 If you are on Windows and have more than one version of Python, use:
 
-    ```
+```
     python3 main.py
-    ```
+```
 
 Ready! The program will start.
